@@ -47,7 +47,8 @@ I've attempted to document how that works.
 
 from binaryninja import (Architecture, BinaryViewType, CallingConvention,
                          IntrinsicInfo, InstructionInfo, InstructionTextToken,
-                         RegisterInfo, log)
+                         RegisterInfo, log, LowLevelILFunction, 
+                         RegisterStackInfo)
 from binaryninja.enums import (BranchType, Endianness, FlagRole,
                                LowLevelILFlagCondition)
 
@@ -88,8 +89,13 @@ class XtensaLE(Architecture):
         'a13': RegisterInfo("a13", 4, 0), # callee-saved
         'a14': RegisterInfo("a14", 4, 0), # callee-saved
         'a15': RegisterInfo("a15", 4, 0), # optional stack-frame pointer
+        
         'sar': RegisterInfo("sar", 1, 0), # Shift Address Register: Not a GPR
+        'callinc': RegisterInfo("callinc", 1, 0), # Call Increment: Not a GPR
     }
+    # reg_stacks = {
+    #     'window_reg': RegisterStackInfo()
+    # }
 
     # Do we have flags?
     flags = {}
@@ -121,9 +127,8 @@ class XtensaLE(Architecture):
             raise Exception("Somehow we got here without setting length")
 
         # Add branches
-        if insn.mnem in ["RET", "RET.N"]:
+        if insn.mnem in ["RET", "RET.N", "RETW", "RETW.N"]: # Added retw as branches too
             result.add_branch(BranchType.FunctionReturn)
-
         # Section 3.8.4 "Jump and Call Instructions
         elif insn.mnem in ["J"]:
             result.add_branch(BranchType.UnconditionalBranch,
@@ -155,7 +160,7 @@ class XtensaLE(Architecture):
         text = disassemble_instruction(insn, addr)
         return text, insn.length
 
-    def get_instruction_low_level_il(self, data, addr, il):
+    def get_instruction_low_level_il(self, data:bytes, addr:int, il:LowLevelILFunction):
         insn = self._decode_instruction(data, addr)
         if not insn:
             return None
