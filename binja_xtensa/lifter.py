@@ -137,6 +137,66 @@ def _lift_ABS_S(insn, addr, il):
     return insn.length
 
 
+def _lift_ADD(insn, addr, il):
+    il.append(
+        il.set_reg(4, _reg_name(insn, "ar"),
+                   il.add(4,
+                          il.reg(4, _reg_name(insn, "as")),
+                          il.reg(4, _reg_name(insn, "at"))
+                          )))
+    return insn.length
+
+def _lift_ADD_N(insn, addr, il):
+    il.append(
+        il.set_reg(4, _reg_name(insn, "ar"),
+                   il.add(4,
+                          il.reg(4, _reg_name(insn, "as")),
+                          il.reg(4, _reg_name(insn, "at"))
+                          )))
+    return insn.length
+
+def _lift_ADD_S(insn, addr, il): 
+    il.append(
+        il.set_reg(4, _reg_name(insn, "fr"),
+                   il.float_add(4,# No flag parameter
+                          il.reg(4, _reg_name(insn, "fs")),
+                          il.reg(4, _reg_name(insn, "ft"))
+                          )))
+    
+def _lift_ADDI(insn, addr, il):
+    il.append(
+        il.set_reg(4, _reg_name(insn, "at"),
+                   il.add(4,
+                          il.reg(4, _reg_name(insn, "as")),
+                          il.const(4, insn.simm8())
+                          )))
+    return insn.length
+def _lift_ADDI_N(insn, addr, il):
+    il.append(
+        il.set_reg(4, _reg_name(insn, "ar"),
+                   il.add(4,
+                       il.reg(4, _reg_name(insn, "as")),
+                       il.const(4, insn.inline0(addr))
+                   )))
+    return insn.length
+
+def _lift_ADDMI(insn, addr, il):
+    constant = sign_extend(insn.imm8, 8) << 8
+    il.append(
+        il.set_reg(4, _reg_name(insn, "at"),
+                   il.add(4,
+                          il.reg(4, _reg_name(insn, "as")),
+                          il.const(4, constant))))
+def _lift_ADDX2(insn, addr, il):
+    return _lift_addx(1, insn, addr, il)
+
+def _lift_ADDX4(insn, addr, il):
+    return _lift_addx(2, insn, addr, il)
+
+def _lift_ADDX8(insn, addr, il):
+    return _lift_addx(3, insn, addr, il)
+
+# Bellow this point, I have not checked the instructions manually
 def _lift_CALL0(insn, addr, il):
     dest = il.const(4, insn.target_offset(addr))
     il.append(
@@ -196,14 +256,6 @@ def _lift_MOV_N(insn, addr, il):
                    ))
     return insn.length
 
-def _lift_ADDI(insn, addr, il):
-    il.append(
-        il.set_reg(4, _reg_name(insn, "at"),
-                   il.add(4,
-                          il.reg(4, _reg_name(insn, "as")),
-                          il.const(4, insn.simm8())
-                          )))
-    return insn.length
 
 def _lift_L8UI(insn, addr, il):
     va = il.add(4,
@@ -309,15 +361,6 @@ def _lift_MEMW(insn, addr, il):
     )
     return insn.length
 
-def _lift_ADDI_N(insn, addr, il):
-    il.append(
-        il.set_reg(4, _reg_name(insn, "ar"),
-                   il.add(4,
-                       il.reg(4, _reg_name(insn, "as")),
-                       il.const(4, insn.inline0(addr))
-                   )))
-    return insn.length
-
 def _lift_SLLI(insn, addr, il):
     il.append(
         il.set_reg(4, _reg_name(insn, "ar"),
@@ -327,14 +370,6 @@ def _lift_SLLI(insn, addr, il):
                        )))
     return insn.length
 
-def _lift_ADD_N(insn, addr, il):
-    il.append(
-        il.set_reg(4, _reg_name(insn, "ar"),
-                   il.add(4,
-                          il.reg(4, _reg_name(insn, "as")),
-                          il.reg(4, _reg_name(insn, "at"))
-                          )))
-    return insn.length
 
 def _lift_BEQZ_N(insn, addr, il):
     cond = il.compare_equal(4, il.reg(4, _reg_name(insn, "as")), il.const(4, 0))
@@ -554,14 +589,6 @@ def _lift_SUB(insn, addr, il):
                           )))
     return insn.length
 
-def _lift_ADD(insn, addr, il):
-    il.append(
-        il.set_reg(4, _reg_name(insn, "ar"),
-                   il.add(4,
-                          il.reg(4, _reg_name(insn, "as")),
-                          il.reg(4, _reg_name(insn, "at"))
-                          )))
-    return insn.length
 
 def _lift_XOR(insn, addr, il):
     il.append(
@@ -590,14 +617,6 @@ def _lift_SRAI(insn, addr, il):
                                         il.const(4, insn.inline0(addr)))))
     return insn.length
 
-def _lift_ADDX2(insn, addr, il):
-    return _lift_addx(1, insn, addr, il)
-
-def _lift_ADDX4(insn, addr, il):
-    return _lift_addx(2, insn, addr, il)
-
-def _lift_ADDX8(insn, addr, il):
-    return _lift_addx(3, insn, addr, il)
 
 def _lift_SUBX2(insn, addr, il):
     return _lift_subx(1, insn, addr, il)
@@ -616,13 +635,6 @@ def _lift_SRLI(insn, addr, il):
                                           il.const(4, insn.s))))
     return insn.length
 
-def _lift_ADDMI(insn, addr, il):
-    constant = sign_extend(insn.imm8, 8) << 8
-    il.append(
-        il.set_reg(4, _reg_name(insn, "at"),
-                   il.add(4,
-                          il.reg(4, _reg_name(insn, "as")),
-                          il.const(4, constant))))
     return insn.length
 
 def _lift_MULL(insn, addr, il):

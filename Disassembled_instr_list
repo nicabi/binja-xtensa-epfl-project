@@ -1,11 +1,15 @@
 # Checked myself
 ABS
 ABS_S
-
-
-
-
-
+ADD     - RRR diss
+ADD.N   - RRR diss
+ADD.S
+ADDI    - RRR diss
+ADDI.N
+ADDMI
+ADDX2   - RRR diss
+ADDX4   - RRR diss
+ADDX8   - RRR diss
 
 
 # From ChatGPT

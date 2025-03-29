@@ -1,24 +1,18 @@
 # Checked myself
 ABS
 ABS_S
-
-
-
-
-
-
-
-
-
-
+ADD
+ADD.N
+ADD.S
+ADDI
+ADDI.N
+ADDMI
+ADDX2
+ADDX4
+ADDX8
 
 
 # From ChatGPT
-ADD
-ADD.S
-ADDI.N
-ADDX2
-ADDX8
 ALL8
 ANDB
 ANY4
