@@ -122,6 +122,21 @@ def _lift_subx(x_bits, insn, addr, il):
 # analysis it would get me. So I started with branches and common math and
 # worked my way down the frequency list.
 
+def _lift_ABS(insn, addr, il):
+    il.append(
+        il.set_reg(4, _reg_name(insn, "ar"),
+                   il.float_abs(4, il.reg(4, _reg_name(insn, "at"))
+                                )))
+    return insn.length
+
+def _lift_ABS_S(insn, addr, il):
+    il.append(
+        il.set_reg(4, _reg_name(insn, "fr"),
+                   il.float_abs(4, il.reg(4, _reg_name(insn, "ft"))
+                                )))
+    return insn.length
+
+
 def _lift_CALL0(insn, addr, il):
     dest = il.const(4, insn.target_offset(addr))
     il.append(
