@@ -15,6 +15,19 @@ Firmwares to be loaded: max linear, ...
   ISA --> lifting to low level
 
 
+WINDOW REGISTERS:
+
+
+a0-a15 are a sliding window that reference 16 active registers at a time
+
+callx4, callx8, callx12 move this sliding window
+
+so after callx4, now a4 holds the stack pointer and we actually use physical registers a4-a19, but still mapped to a0-a15
+
+Problem, I cant read the content of the register while actively decompiling...
+Also problem, 3 different call functions for each increment value, only one retw, which depends on the value of the register
+
+
 # Setup and Testing
 To add the plugin to binja, just create a symlink to the source code in the plugins folder of binary ninja
 

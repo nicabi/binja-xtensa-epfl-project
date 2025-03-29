@@ -155,59 +155,57 @@ def _lift_CALLX8(insn, addr, il):
 #     return insn.length
 
 def _lift_ENTRY(insn, addr, il):
-    callinc = il.reg(1, "callinc")  # Get callinc to see what callxn entry was called
-    cond4  = il.compare_equal(1,il.const(1, 4),callinc)
-    cond8  = il.compare_equal(1,il.const(1, 8),callinc)
-    cond12 = il.compare_equal(1,il.const(1, 12),callinc)
-    callx4_label =  LowLevelILLabel()
-    callx8_label =  LowLevelILLabel()
-    callx12_label =  LowLevelILLabel()
-    end_label =  LowLevelILLabel()
-    # TODO: Condition based on register
-    # append all assembly to move all registers
+    # callinc = il.reg(1, "callinc")  # Get callinc to see what callxn entry was called
+    # cond4  = il.compare_equal(1,il.const(1, 4),callinc)
+    # cond8  = il.compare_equal(1,il.const(1, 8),callinc)
+    # cond12 = il.compare_equal(1,il.const(1, 12),callinc)
+    # callx4_label =  LowLevelILLabel()
+    # callx8_label =  LowLevelILLabel()
+    # callx12_label =  LowLevelILLabel()
+    # end_label =  LowLevelILLabel()
+    # # TODO: Condition based on register
+    # # append all assembly to move all registers
 
-    il.append(il.if_expr(cond8, callx8_label, end_label))
-    il.mark_label(callx8_label)
-
-    il.append(il.set_reg(4, _reg_name(insn, "as", 8 ), 
+    # il.append(il.if_expr(cond8, callx8_label, end_label))
+    # il.mark_label(callx8_label)
+    # # Save first 8 registers
+    # # AR[PS.CALLINC||s1..0] ← AR[s] − (017||imm12||03)
+    il.append(il.set_reg(4, _reg_name(insn, "as"), 
                il.add(4,
                        il.reg(4, _reg_name(insn, "as")),
                        il.const(4, -insn.inline0(addr))
                    )))
-    
-    # Save first 8 registers
-    for i in range(8):
-        il.append(il.push(4,il.reg(4, "a" + str(i))))
-    # then copy the other 8 on top of the first
-    # First update the ret addr A[s]
-    # AR[PS.CALLINC||s1..0] ← AR[s] − (017||imm12||03)
-    il.append(il.set_reg(4,"a0", il.reg(4, "a8")))
-    il.append(il.set_reg(4,"a1", il.reg(4, "a9")))
-    il.append(il.set_reg(4,"a2", il.reg(4, "a10")))
-    il.append(il.set_reg(4,"a3", il.reg(4, "a11")))
-    il.append(il.set_reg(4,"a4", il.reg(4, "a12")))
-    il.append(il.set_reg(4,"a5", il.reg(4, "a13")))
-    il.append(il.set_reg(4,"a6", il.reg(4, "a14")))
-    il.append(il.set_reg(4,"a7", il.reg(4, "a15")))
-    il.mark_label(end_label)
+    # for i in range(8):
+    #     il.append(il.push(4,il.reg(4, "a" + str(i))))
+    # # then copy the other 8 on top of the first
+    # # First update the ret addr A[s]
+    # il.append(il.set_reg(4,"a0", il.reg(4, "a8")))
+    # il.append(il.set_reg(4,"a1", il.reg(4, "a9")))
+    # il.append(il.set_reg(4,"a2", il.reg(4, "a10")))
+    # il.append(il.set_reg(4,"a3", il.reg(4, "a11")))
+    # il.append(il.set_reg(4,"a4", il.reg(4, "a12")))
+    # il.append(il.set_reg(4,"a5", il.reg(4, "a13")))
+    # il.append(il.set_reg(4,"a6", il.reg(4, "a14")))
+    # il.append(il.set_reg(4,"a7", il.reg(4, "a15")))
+    # il.mark_label(end_label)
 
     return insn.length
 
 def _lift_RETW(insn, addr, il):
 
-    il.append(il.set_reg(4,"a8", il.reg(4, "a0")))
-    il.append(il.set_reg(4,"a9", il.reg(4, "a1")))
-    il.append(il.set_reg(4,"a10", il.reg(4, "a2")))
-    il.append(il.set_reg(4,"a11", il.reg(4, "a3")))
-    il.append(il.set_reg(4,"a12", il.reg(4, "a4")))
-    il.append(il.set_reg(4,"a13", il.reg(4, "a5")))
-    il.append(il.set_reg(4,"a14", il.reg(4, "a6")))
-    il.append(il.set_reg(4,"a15", il.reg(4, "a7")))
+    # il.append(il.set_reg(4,"a8", il.reg(4, "a0")))
+    # il.append(il.set_reg(4,"a9", il.reg(4, "a1")))
+    # il.append(il.set_reg(4,"a10", il.reg(4, "a2")))
+    # il.append(il.set_reg(4,"a11", il.reg(4, "a3")))
+    # il.append(il.set_reg(4,"a12", il.reg(4, "a4")))
+    # il.append(il.set_reg(4,"a13", il.reg(4, "a5")))
+    # il.append(il.set_reg(4,"a14", il.reg(4, "a6")))
+    # il.append(il.set_reg(4,"a15", il.reg(4, "a7")))
 
-    for i in range(8)[::-1]:
-        il.append(il.set_reg(4,"a"+str(i),il.pop(4)))
+    # for i in range(8)[::-1]:
+    #     il.append(il.set_reg(4,"a"+str(i),il.pop(4)))
     
-    dest = il.reg(4, 'a8')
+    dest = il.reg(4, 'a0')
     il.append(il.ret(dest))
     return insn.length
 
