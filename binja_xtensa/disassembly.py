@@ -237,8 +237,6 @@ _disassemble_rri8 = _dis("at as simm8")
 
 # Overrides for exceptions to the instruction type
 _disassemble_ABS = _dis("ar at")
-_disassemble_ABS_S = _dis("fr fs")
-_disassemble_ADD_S = _dis("fr fs ft")
 _disassemble_ADDI_N = _dis("ar as addi_n_imm")
 _disassemble_ADDMI = _dis("at as simm8_s8")
 _disassemble_ALL4 = _dis("bt bs")
@@ -296,7 +294,6 @@ _disassemble_CALLX4  = _dis("as")
 _disassemble_CALLX8  = _dis("as")
 _disassemble_CALLX12 = _dis("as")
 
-_disassemble_CEIL_S = _dis("ar fs t")
 # Skipping CLAMPS, I don't care about floats
 # Skipping DHI, DHU, DHWB, DHWBI, DII, DIU, DIWB, DIWBI, DPFL, DPFR, DPFRO,
 # DPFW, DPFWO, they deal with data caching, which is an extension
@@ -309,8 +306,6 @@ _disassemble_EXTUI = _dis("ar at inline0 inline1",
                          lambda insn, _: _get_imm8_tok(insn.extui_shiftimm()),
                          lambda insn, _: _get_imm8_tok(insn.inline1(_)))
 _disassemble_EXTW = _dis("")
-_disassemble_FLOAT_S = _dis("fr as t")
-_disassemble_FLOOR_S = _dis("ar Fs t")
 _disassemble_IDTLB = _dis("as")
 # Skipping IHI, IHU, III
 _disassemble_IITLB = _dis("as")
@@ -338,7 +333,6 @@ _disassemble_L32R = _dis("at mem_offset")
 # Skipping LDDEC,LDINC; they're MAC16
 # Skipping LICT, LICW, instruction cache option
 # Skipping LOOP, LOOPGTZ, LOOPNEZ, loop option
-# Skipping LSI, LSIU, LSX, LSXU, MADD_S (floats)
 _disassemble_MEMW = _dis("")
 _disassemble_MOVI = _dis("at inline0",
                          lambda insn, _: _get_imm32_tok(insn.inline0(_)))
@@ -406,3 +400,45 @@ _disassemble_WER = _dis("at as")
 _disassemble_WITLB = _dis("at as")
 _disassemble_WER = _dis("at as")
 # _disassemble_WUR = _dis("at sr") # sr not yet handled
+
+
+# All Floating-Point operations dissassembled:
+
+_disassemble_ABS_S =    _dis("fr fs")
+_disassemble_ADD_S =    _dis("fr fs ft")
+_disassemble_CEIL_S =   _dis("ar fs t")
+_disassemble_FLOAT_S =  _dis("fr as t")
+_disassemble_FLOOR_S =  _dis("ar fs t")
+_disassemble_LSI =      _dis("ft as imm8")
+_disassemble_LSIU =     _dis("ft as imm8")
+_disassemble_LSX =      _dis("fr as at")
+_disassemble_LSXU =     _dis("fr as at")
+_disassemble_MADD_S =   _dis("fr fs ft")
+_disassemble_MOV_S =    _dis("fr fs")
+_disassemble_MOVF_S =   _dis("fr fs bt")
+_disassemble_MOVEQZ_S = _dis("fr fs at")
+_disassemble_MOVGEZ_S = _dis("fr fs at")
+_disassemble_MOVLTZ_S = _dis("fr fs at")
+_disassemble_MOVNEZ_S = _dis("fr fs at")
+_disassemble_MOVT_S =   _dis("fr fs bt")
+_disassemble_MSUB_S =   _dis("fr fs ft")
+_disassemble_MUL_S =    _dis("fr fs ft")
+_disassemble_NEG_S =    _dis("fr fs")
+_disassemble_OEQ_S =    _dis("br fs ft")
+_disassemble_OLE_S =    _dis("br fs ft")
+_disassemble_OLT_S =    _dis("br fs ft")
+_disassemble_RFR =      _dis("ar fs")
+_disassemble_ROUND_S =  _dis("ar fs t")
+_disassemble_SSI =      _dis("ft as imm8")
+_disassemble_SSIU =     _dis("ft as imm8")
+_disassemble_SSX =      _dis("fr as at")
+_disassemble_SSXU =     _dis("fr as at")
+_disassemble_SUB_S =    _dis("fr fs ft")
+_disassemble_TRUNC_S =  _dis("ar fs t")
+_disassemble_UEQ_S =    _dis("br fs ft")
+_disassemble_UFLOAT_S = _dis("fr as t")
+_disassemble_ULE_S =    _dis("br fs ft")
+_disassemble_ULT_S =    _dis("br fs ft")
+_disassemble_UN_S =     _dis("br fs ft")
+_disassemble_UTRUNC_S = _dis("ar fs t")
+_disassemble_WFR =      _dis("fr as")
