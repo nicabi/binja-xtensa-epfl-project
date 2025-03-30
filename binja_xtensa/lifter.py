@@ -8,7 +8,7 @@ from binaryninja import Architecture, LowLevelILLabel
 
 from .instruction import sign_extend
 
-def _reg_name(insn, fmt,offset=0):
+def _reg_name(insn, fmt, offset=0):
     """Get the concrete register for a particular part of an instruction
 
     For example, if the docs say an instruction writes to "as", we call this
@@ -21,8 +21,14 @@ def _reg_name(insn, fmt,offset=0):
         if val is None:
             raise Exception("Could not find property " + fmt)
         return "a" + str(val+offset)
+    if fmt.startswith("b"):
+        rest = fmt[1:]
+        val = getattr(insn, rest, None)
+        if val is None:
+            raise Exception("Could not find property " + fmt)
+        return str(val+offset)
     else:
-        # When we lift boolean instructions, we'll need to add support for "b"
+        # When we lift boolean instructions, we'll need to add support for "f"
         # registers, etc.
         raise Exception("Unimplemented reg name fmt: " + fmt)
 
@@ -118,6 +124,214 @@ def _lift_subx(x_bits, insn, addr, il):
                           il.reg(4, _reg_name(insn, "at")))))
     return insn.length
 
+# Boolean option Chapter 4.3.10
+
+def _lift_ALL4(insn, addr, il):
+    t = _reg_name(insn, "bt")
+    s = _reg_name(insn, "bs")
+    br = il.reg(4, "br")
+    mask_2t = il.const(2, 2**t)
+
+    shifted_temp1 = il.logical_shift_right(2, br, il.const(2,s))
+    shifted_temp2 = il.logical_shift_right(2, br, il.const(2,(s+2)))
+    
+    temp =          il.and_expr(2, shifted_temp1, shifted_temp2)
+    temp_shifted =  il.logical_shift_right(2, temp, il.const(2, 1))
+
+    result = il.and_expr(2, temp, temp_shifted)
+    result_bit = il.shift_left(4, 
+                    il.and_expr(2, result, il.const(2, 1)),  # Only get the least significant bit
+                    il.const(2, t))
+
+    br_empty_bit = il.and_expr(2, il.reg(4, "br"), mask_2t)
+    il.append(il.set_reg(2, br,
+                    il.or_expr(2, br_empty_bit, result_bit)))
+    return insn.length
+# TODO: def _lift_ALL8, same as ALL4, do it after you test All4
+# TODO: def _lift_ANY4, almost same as ALL4, do it after you test All4
+# TODO: def _lift_ANY8, almost same as ALL4, do it after you test All4
+
+# Helper function to implement binary operations of boolean registers
+def _lift_binop_B(insn, addr, il, op):
+    r = _reg_name(insn, "br")
+    t = _reg_name(insn, "bt")
+    s = _reg_name(insn, "bs")
+    br = il.reg(4, "br")
+    mask_2r = il.const(2, 2**r)
+
+    shifted_s = il.logical_shift_right(2, br, il.const(2,s))
+    shifted_t = il.logical_shift_right(2, br, il.const(2,t))
+    shifted_t_neg = il.not_expr(2, il.logical_shift_right(2, br, il.const(2,t)))
+    match op:
+        case "ANDB":
+            temp = il.and_expr(2, shifted_s, shifted_t)
+        case "ANDBC":
+            temp = il.and_expr(2, shifted_s, shifted_t_neg)
+        case "ORB":
+            temp = il.or_expr(2,  shifted_s, shifted_t)
+        case "ORBC":
+            temp = il.or_expr(2,  shifted_s, shifted_t_neg)
+        case "XORB":
+            temp = il.xor_expr(2, shifted_s, shifted_t)
+
+    result_bit = il.shift_left(4, 
+                        il.and_expr(2, temp, il.const(2, 1)), # Only get the least significant bit
+                        il.const(2, r))
+    br_empty_bit = il.and_expr(2, br, mask_2r)
+    
+    il.append(il.set_reg(2, br,
+                    il.or_expr(2, br_empty_bit, result_bit)))
+    return insn.length
+def _lift_ANDB(insn, addr, il):
+    return _lift_binary_B(insn, addr, il, "ANDB")
+def _lift_ANDBC(insn, addr, il):
+    return _lift_binary_B(insn, addr, il, "ANDBC")
+def _lift_ORB(insn, addr, il):
+    return _lift_binary_B(insn, addr, il, "ORB")
+def _lift_ORBC(insn, addr, il):
+    return _lift_binary_B(insn, addr, il, "ORBC")
+def _lift_XORB(insn, addr, il):
+    return _lift_binary_B(insn, addr, il, "XORB")
+
+# Verbose implementation of each instruction
+
+# def _lift_ANDB(insn, addr, il):
+#     r = _reg_name(insn, "br")
+#     t = _reg_name(insn, "bt")
+#     s = _reg_name(insn, "bs")
+#     br = il.reg(4, "br")
+#     mask_2r = il.const(2, 2**r)
+
+#     shifted_s = il.logical_shift_right(2, br, il.const(2,s))
+#     shifted_t = il.logical_shift_right(2, br, il.const(2,t))
+#     temp = il.and_expr(2, shifted_s, shifted_t)
+
+#     result_bit = il.shift_left(4, 
+#                                il.and_expr(2, temp, il.const(2, 1)) # Only get the least significant bit
+#                                , il.const(2, r))
+#     br_empty_bit = il.and_expr(2, br, mask_2r)
+
+#     il.append(il.set_reg(2, br,
+#                     il.or_expr(2, br_empty_bit, result_bit)))
+#     return insn.length
+
+# def _lift_ANDBC(insn, addr, il):
+#     r = _reg_name(insn, "br")
+#     t = _reg_name(insn, "bt")
+#     s = _reg_name(insn, "bs")
+#     br = il.reg(4, "br")
+#     mask_2r = il.const(2, 2**r)
+
+#     shifted_s = il.logical_shift_right(2, br, il.const(2,s))
+#     shifted_t = il.not_expr(2, il.logical_shift_right(2, br, il.const(2,t)))
+#     temp = il.and_expr(2, shifted_s, shifted_t)
+
+#     result_bit = il.shift_left(4, 
+#                                il.and_expr(2, temp, il.const(2, 1)) # Only get the least significant bit
+#                                , il.const(2, r))
+#     br_empty_bit = il.and_expr(2, br, mask_2r)
+    
+#     il.append(il.set_reg(2, br,
+#                     il.or_expr(2, br_empty_bit, result_bit)))
+#     return insn.length
+
+# def _lift_ORB(insn, addr, il):
+#     r = _reg_name(insn, "br")
+#     t = _reg_name(insn, "bt")
+#     s = _reg_name(insn, "bs")
+#     br = il.reg(4, "br")
+#     mask_2r = il.const(2, 2**r)
+
+#     shifted_s = il.logical_shift_right(2, br, il.const(2,s))
+#     shifted_t = il.logical_shift_right(2, br, il.const(2,t))
+#     temp = il.or_expr(2, shifted_s, shifted_t)
+
+#     result_bit = il.shift_left(4, 
+#                                il.and_expr(2, temp, il.const(2, 1)) # Only get the least significant bit
+#                                , il.const(2, r))
+#     br_empty_bit = il.and_expr(2, br, mask_2r)
+
+#     il.append(il.set_reg(2, br,
+#                     il.or_expr(2, br_empty_bit, result_bit)))
+#     return insn.length
+# def _lift_ORBC(insn, addr, il):
+#     r = _reg_name(insn, "br")
+#     t = _reg_name(insn, "bt")
+#     s = _reg_name(insn, "bs")
+#     br = il.reg(4, "br")
+#     mask_2r = il.const(2, 2**r)
+
+#     shifted_s = il.logical_shift_right(2, br, il.const(2,s))
+#     shifted_t = il.not_expr(2, il.logical_shift_right(2, br, il.const(2,t)))
+#     temp = il.or_expr(2, shifted_s, shifted_t)
+
+#     result_bit = il.shift_left(4, 
+#                                il.and_expr(2, temp, il.const(2, 1)) # Only get the least significant bit
+#                                , il.const(2, r))
+#     br_empty_bit = il.and_expr(2, br, mask_2r)
+    
+#     il.append(il.set_reg(2, br,
+#                     il.or_expr(2, br_empty_bit, result_bit)))
+#     return insn.length
+
+# def _lift_XORB(insn, addr, il):
+#     r = _reg_name(insn, "br")
+#     t = _reg_name(insn, "bt")
+#     s = _reg_name(insn, "bs")
+#     br = il.reg(4, "br")
+#     mask_2r = il.const(2, 2**r)
+
+#     shifted_s = il.logical_shift_right(2, br, il.const(2,s))
+#     shifted_t = il.logical_shift_right(2, br, il.const(2,t))
+#     temp = il.xor_expr(2, shifted_s, shifted_t)
+
+#     result_bit = il.shift_left(4, 
+#                                il.and_expr(2, temp, il.const(2, 1)) # Only get the least significant bit
+#                                , il.const(2, r))
+#     br_empty_bit = il.and_expr(2, br, mask_2r)
+
+#     il.append(il.set_reg(2, br,
+#                     il.or_expr(2, br_empty_bit, result_bit)))
+#     return insn.length
+
+# Helper function for BF and BT, as only difference is the value of the condition
+def _lift_BFT(insn, addr, il, bit):
+    s = _reg_name(insn, "bs")
+    br = il.reg(4, "br")
+
+    bit_s = il.and_expr(2, 
+                il.logical_shift_right(2, br, il.const(2,s)), 
+                il.const(2, 1))
+    cond = il.compare_equal(2, il.reg(4, bit_s, il.const(4, bit))) # 
+    
+    true_label = LowLevelILLabel()
+    false_label = LowLevelILLabel()
+    il.append(il.if_expr(cond, true_label, false_label))
+    il.mark_label(true_label)
+    il.append(il.jump(il.const(4, insn.target_offset(addr))))
+    il.mark_label(false_label)
+    return insn.length
+
+def _lift_BF(insn, addr, il, bit):
+    return _lift_BFT(insn, addr, il, 0)
+def _lift_BT(insn, addr, il, bit):
+    return _lift_BFT(insn, addr, il, 1)
+
+
+def _lift_MOVFT(insn, addr, il, bit):
+    t = _reg_name(insn, "bt")
+    br = il.reg(4, "br")
+
+    bit_t = il.and_expr(2, 
+                il.logical_shift_right(2, br, il.const(2, t)), 
+                il.const(2, 1))
+    cond = il.compare_equal(2, il.reg(4, bit_t, il.const(4, bit)))
+    return _lift_cmov(cond, insn, addr, il)
+def _lift_MOVF(insn, addr, il, bit):
+    return _lift_MOVFT(insn, addr, il, 0)
+def _lift_MOVT(insn, addr, il, bit):
+    return _lift_MOVFT(insn, addr, il, 1)
+
 # From here on down, I lifted instructions in priority order of how much
 # analysis it would get me. So I started with branches and common math and
 # worked my way down the frequency list.
@@ -196,8 +410,6 @@ def _lift_ADDX4(insn, addr, il):
 def _lift_ADDX8(insn, addr, il):
     return _lift_addx(3, insn, addr, il)
 
-# TODO: def _lift_ALL4
-# TODO: def _lift_ALL8
 
 def _lift_AND(insn, addr, il):
     il.append(
@@ -282,8 +494,6 @@ def _lift_BEQZ(insn, addr, il):
     return _lift_cond(cond, insn, addr, il)
 
 _lift_BEQZ_N = _lift_BEQZ
-
-# TODO: def _lift_BF(insn, addr, il):
 
 def _lift_BGE(insn, addr, il):
     cond = il.compare_signed_greater_equal(4,
@@ -406,6 +616,9 @@ def _lift_CALLX0(insn, addr, il):
 
 # TODO: Call4-12, Callx4-12
 
+
+
+
 # Bellow this point, I have not checked the instructions myself - Nicu
 
 def _lift_RET(insn, addr, il):
@@ -501,12 +714,6 @@ def _lift_L16UI(insn, addr, il):
 def _lift_J(insn, addr, il):
     il.append(il.jump(il.const(4, insn.target_offset(addr))))
     return insn.length
-
-# Coded twice
-# def _lift_CALLX0(insn, addr, il):
-#     il.append(
-#         il.call(il.reg(4, _reg_name(insn, "as"))))
-#     return insn.length
 
 def _lift_JX(insn, addr, il):
     il.append(il.jump(il.reg(4, _reg_name(insn, "as"))))

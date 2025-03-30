@@ -1,22 +1,33 @@
+# New, Boolean operations
+ANDB  - test
+ANDBC - test
+ORB  - test
+ORBC - test
+XORB - test
+
+ALL4 - test
+ALL8 - TODO
+ANY4  - TODO
+ANY8  - TODO
+
+BF - test
+BT - test
+MOVF - test
+MOVT - test
+
 # Checked myself
-ABS     - New
-ABS_S   - New
+ABS     - test, float?
+ABS_S   - test, float
 ADD
 ADD.N
-ADD.S   - New
+ADD.S   - test, float
 ADDI
 ADDI.N
 ADDMI
 ADDX2
 ADDX4
 ADDX8
-ALL4 - TODO
-ALL8 - TODO
 AND    
-ANDB  - TODO
-ANDBC - TODO
-ANY4  - TODO
-ANY8  - TODO
 BALL
 BANY
 BBC
@@ -29,7 +40,6 @@ BEQ
 BEQI
 BEQZ
 BEQZ_N
-BF - TODO
 BGE
 BGEI
 BGEU

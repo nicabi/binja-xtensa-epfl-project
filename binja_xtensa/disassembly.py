@@ -344,12 +344,16 @@ _disassemble_MOVI = _dis("at inline0",
 _disassemble_MOVI_N = _dis("as inline0",
                            lambda insn, _: _get_imm32_tok(insn.inline0(_)))
 _disassemble_MOV_N = _dis("at as")
+_disassemble_MOVF = _dis("ar as bt")
 _disassemble_MOVSP = _dis("at as")
+_disassemble_MOVT = _dis("ar as bt")
 _disassemble_NEG = _dis("ar at")
 _disassemble_NOP = _dis("")
 _disassemble_NOP_N = _dis("")
 _disassemble_NSA = _dis("at as")
 _disassemble_NSAU = _dis("at as")
+_disassemble_ORB = _dis("br bs bt")
+_disassemble_ORBC = _dis("br bs bt")
 _disassemble_PDTLB = _dis("at as")
 _disassemble_PITLB = _dis("at as")
 _disassemble_RDTLB0 = _dis("at as")
@@ -404,4 +408,6 @@ _disassemble_WDTLB = _dis("at as")
 _disassemble_WER = _dis("at as")
 _disassemble_WITLB = _dis("at as")
 _disassemble_WER = _dis("at as")
+_disassemble_XORB = _dis("br bs bt")
+
 # _disassemble_WUR = _dis("at sr") # sr not yet handled

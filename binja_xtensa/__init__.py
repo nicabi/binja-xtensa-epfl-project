@@ -93,6 +93,10 @@ class XtensaLE(Architecture):
         # Floating register 4.3.11.1
         'fcr': RegisterInfo("fcr", 4, 0), # Floating-point control register
         'fsr': RegisterInfo("fsr", 4, 0), # Floating-point status register
+
+        # Boolean registers - Chapter 4.3.10
+        # Theoretically 16 1-bit register, represented as 1 16-bit register
+        'br': RegisterInfo("br", 2, 0), # Floating-point status register
         
         'sar': RegisterInfo("sar", 1, 0), # Shift Address Register: Not a GPR
         'callinc': RegisterInfo("callinc", 1, 0), # Call Increment: Not a GPR
@@ -100,10 +104,6 @@ class XtensaLE(Architecture):
     # Floating-point registers Chapter 4.3.11
     for i in range(16):
         regs[f"f{i}"] = RegisterInfo(f"f{i}", 4, 0)
-
-    # Boolean registers - Chapter 4.3.10
-    for i in range(16):
-        regs[f"b{i}"] = RegisterInfo(f"b{i}", 1, 0)
 
     # Do we have flags?
     flags = {}
