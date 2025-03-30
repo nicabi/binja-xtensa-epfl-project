@@ -309,7 +309,8 @@ _disassemble_EXTUI = _dis("ar at inline0 inline1",
                          lambda insn, _: _get_imm8_tok(insn.extui_shiftimm()),
                          lambda insn, _: _get_imm8_tok(insn.inline1(_)))
 _disassemble_EXTW = _dis("")
-# Skipping float stuff
+_disassemble_FLOAT_S = _dis("fr as t")
+_disassemble_FLOOR_S = _dis("ar Fs t")
 _disassemble_IDTLB = _dis("as")
 # Skipping IHI, IHU, III
 _disassemble_IITLB = _dis("as")

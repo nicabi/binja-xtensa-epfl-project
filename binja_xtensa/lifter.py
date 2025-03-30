@@ -118,6 +118,81 @@ def _lift_subx(x_bits, insn, addr, il):
                           il.reg(4, _reg_name(insn, "at")))))
     return insn.length
 
+
+# Floating-point Coprocessor Option
+# TODO: def _lift_ABS.S:
+# TODO: def _lift_ADD.S:
+
+def _lift_ABS_S(insn, addr, il):
+    il.append(
+        il.set_reg(4, _reg_name(insn, "fr"),
+                   il.float_abs(4, il.reg(4, _reg_name(insn, "ft")) # Note: No flag parameter
+                                )))
+    return insn.length
+def _lift_ADD_S(insn, addr, il): 
+    il.append(
+        il.set_reg(4, _reg_name(insn, "fr"),
+                   il.float_add(4,  # Note: No flag parameter
+                          il.reg(4, _reg_name(insn, "fs")),
+                          il.reg(4, _reg_name(insn, "ft"))
+                          )))
+    return insn.length
+def _lift_CEIL_S(insn, addr, il): 
+    il.append(
+        il.set_reg(4, _reg_name(insn, "fr"),
+            il.ceil(4,  # Note: No flag parameter
+                il.float_mult(4,    il.reg(4, _reg_name(insn, "as")),
+                                    il.float_const_single(4, 2**insn.t)))))
+    return insn.length
+
+def _lift_FLOAT_S(insn, addr, il): 
+    il.append(
+        il.set_reg(4, _reg_name(insn, "fr"),
+            il.float_mult(4,    il.int_to_float(4, _reg_name(insn, "as")),
+                                il.float_const_single(4, 2.0**(-insn.t)))))
+    return insn.length
+def _lift_FLOOR_S(insn, addr, il): 
+    il.append(
+        il.set_reg(4, _reg_name(insn, "fr"),
+            il.floor(4,  # Note: No flag parameter
+                il.float_mult(4,    il.reg(4, _reg_name(insn, "as")),
+                                    il.float_const_single(4, 2**insn.t)))))
+    return insn.length
+    
+# TODO: def _lift_LSI:
+# TODO: def _lift_LSIU:
+# TODO: def _lift_LSX:
+# TODO: def _lift_LSXU:
+# TODO: def _lift_MADD_S:
+# TODO: def _lift_MOV_S:
+# TODO: def _lift_MOVEQZ_S:
+# TODO: def _lift_MOVF_S:
+# TODO: def _lift_MOVGEZ_S:
+# TODO: def _lift_MOVLTZ_S:
+# TODO: def _lift_MOVNEZ_S:
+# TODO: def _lift_MOVT_S:
+# TODO: def _lift_MSUB_S:
+# TODO: def _lift_MUL_S:
+# TODO: def _lift_NEG_S:
+# TODO: def _lift_OEQ_S:
+# TODO: def _lift_OLE_S:
+# TODO: def _lift_OLT_S:
+# TODO: def _lift_RFR:
+# TODO: def _lift_ROUND_S:
+# TODO: def _lift_SSI:
+# TODO: def _lift_SSIU:
+# TODO: def _lift_SSX:
+# TODO: def _lift_SSXU:
+# TODO: def _lift_SUB_S:
+# TODO: def _lift_TRUNC_S:
+# TODO: def _lift_UEQ_S:
+# TODO: def _lift_UFLOAT_S:
+# TODO: def _lift_ULE_S:
+# TODO: def _lift_ULT_S:
+# TODO: def _lift_UN_S:
+# TODO: def _lift_UTRUNC_S:
+# TODO: def _lift_WFR R:
+
 # From here on down, I lifted instructions in priority order of how much
 # analysis it would get me. So I started with branches and common math and
 # worked my way down the frequency list.
@@ -128,14 +203,6 @@ def _lift_ABS(insn, addr, il):
                    il.float_abs(4, il.reg(4, _reg_name(insn, "at"))
                                 )))
     return insn.length
-
-def _lift_ABS_S(insn, addr, il):
-    il.append(
-        il.set_reg(4, _reg_name(insn, "fr"),
-                   il.float_abs(4, il.reg(4, _reg_name(insn, "ft")) # Note: No flag parameter
-                                )))
-    return insn.length
-
 
 def _lift_ADD(insn, addr, il):
     il.append(
@@ -154,14 +221,6 @@ def _lift_ADD_N(insn, addr, il):
                           il.reg(4, _reg_name(insn, "at"))
                           )))
     return insn.length
-
-def _lift_ADD_S(insn, addr, il): 
-    il.append(
-        il.set_reg(4, _reg_name(insn, "fr"),
-                   il.float_add(4,  # Note: No flag parameter
-                          il.reg(4, _reg_name(insn, "fs")),
-                          il.reg(4, _reg_name(insn, "ft"))
-                          )))
     
 def _lift_ADDI(insn, addr, il):
     il.append(

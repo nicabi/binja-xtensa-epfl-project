@@ -1,22 +1,22 @@
+# New, Floating-Point operations
+ABS     - test, float?
+ABS_S   - test, float
+ADD.S   - test, float
+CEIL.S   - test, float
+FLOAT.S   - test, float
+FLOOR.S   - test, float
+
+
 # Checked myself
-ABS     - New
-ABS_S   - New
 ADD
 ADD.N
-ADD.S   - New
 ADDI
 ADDI.N
 ADDMI
 ADDX2
 ADDX4
 ADDX8
-ALL4 - TODO
-ALL8 - TODO
 AND    
-ANDB  - TODO
-ANDBC - TODO
-ANY4  - TODO
-ANY8  - TODO
 BALL
 BANY
 BBC
@@ -29,7 +29,6 @@ BEQ
 BEQI
 BEQZ
 BEQZ_N
-BF - TODO
 BGE
 BGEI
 BGEU
@@ -59,6 +58,8 @@ CEIL_S - TODO
 CALL0
 CALLX0
 EXTUI
+ILL
+ISYNC
 J
 JX
 L16SI
@@ -68,16 +69,47 @@ L32I_N
 L32R
 L8UI
 MEMW
+MOV
 MOV_N
+MOVEQZ
+MOVF
+MOVFT
+MOVGEZ
 MOVI
 MOVI_N
+MOVLTZ
+MOVNEZ
+MOVT
+MUL16S
+MUL16U
+MULL
+NEG
+NOP
+NOP_N
 OR
+ORB
+ORBC
 RET
 RET_N
 S16I
 S32I
 S32I_N
 S8I
+SLL
 SLLI
+SRA
+SRAI
+SRC
+SRL
+SRLI
+SSA8L
+SSAI
+SSL
+SSR
 SUB
+SUBX2
+SUBX4
+SUBX8
+SYSCALL
 XOR
+XORB
