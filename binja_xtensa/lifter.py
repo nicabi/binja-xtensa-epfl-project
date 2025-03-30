@@ -132,7 +132,7 @@ def _lift_ABS(insn, addr, il):
 def _lift_ABS_S(insn, addr, il):
     il.append(
         il.set_reg(4, _reg_name(insn, "fr"),
-                   il.float_abs(4, il.reg(4, _reg_name(insn, "ft"))
+                   il.float_abs(4, il.reg(4, _reg_name(insn, "ft")) # Note: No flag parameter
                                 )))
     return insn.length
 
@@ -158,7 +158,7 @@ def _lift_ADD_N(insn, addr, il):
 def _lift_ADD_S(insn, addr, il): 
     il.append(
         il.set_reg(4, _reg_name(insn, "fr"),
-                   il.float_add(4,# No flag parameter
+                   il.float_add(4,  # Note: No flag parameter
                           il.reg(4, _reg_name(insn, "fs")),
                           il.reg(4, _reg_name(insn, "ft"))
                           )))
@@ -196,7 +196,202 @@ def _lift_ADDX4(insn, addr, il):
 def _lift_ADDX8(insn, addr, il):
     return _lift_addx(3, insn, addr, il)
 
-# Bellow this point, I have not checked the instructions manually
+# TODO: def _lift_ALL4
+# TODO: def _lift_ALL8
+
+def _lift_AND(insn, addr, il):
+    il.append(
+        il.set_reg(4, _reg_name(insn, "ar"),
+                   il.and_expr(4,
+                              il.reg(4, _reg_name(insn, "as")),
+                              il.reg(4, _reg_name(insn, "at"))
+                              )))
+    return insn.length
+def _lift_BALL(insn, addr, il):
+    cond = il.compare_equal(4,
+                            il.and_expr(4,
+                                il.reg(4, _reg_name(insn, "at")),
+                                il.not_expr(4, il.reg(4, _reg_name(insn, "as")))
+                            ),
+                            il.const(4, 0))
+    return _lift_cond(cond, insn, addr, il)
+def _lift_BANY(insn, addr, il):
+    cond = il.compare_not_equal(4,
+                            il.and_expr(4,
+                                il.reg(4, _reg_name(insn, "as")),
+                                il.reg(4, _reg_name(insn, "at"))
+                            ),
+                            il.const(4, 0))
+    return _lift_cond(cond, insn, addr, il)
+def _lift_BBC(insn, addr, il):
+    cond = il.compare_equal(4,
+                            il.test_bit(4,
+                                il.reg(4, _reg_name(insn, "as")),
+                                # Strictly speaking we're supposed to check the
+                                # low 5 bits of at. I don't really see the need
+                                # to clutter the UI with it
+
+                                # Also: TODO: figure out which way Binja numbers
+                                # the bits
+                                il.reg(4, _reg_name(insn, "at"))
+                            ),
+                            il.const(4, 0))
+    return _lift_cond(cond, insn, addr, il)
+def _lift_BBCI(insn, addr, il):
+    cond = il.compare_equal(4,
+                            il.test_bit(4,
+                                il.reg(4, _reg_name(insn, "as")),
+                                # Also: TODO: figure out which way Binja numbers
+                                # the bits
+                                il.const(4, insn.inline0(addr))
+                            ),
+                            il.const(4, 0))
+    return _lift_cond(cond, insn, addr, il)
+_lift_BBCI_L = _lift_BBCI # We use Little Endinan --> BBCI and BBCI_L are the same
+
+def _lift_BBS(insn, addr, il):
+    cond = il.test_bit(4,
+        il.reg(4, _reg_name(insn, "as")),
+        # Strictly speaking we're supposed to check the
+        # low 5 bits of at. I don't really see the need
+        # to clutter the UI with it
+        il.reg(4, _reg_name(insn, "at")))
+    return _lift_cond(cond, insn, addr, il)
+
+
+def _lift_BBSI(insn, addr, il):
+    cond = il.test_bit(4,
+        il.reg(4, _reg_name(insn, "as")),
+        il.const(4, insn.inline0(addr)))
+    return _lift_cond(cond, insn, addr, il)
+_lift_BBSI_L = _lift_BBSI # We use Little Endinan --> BBSI and BBSI_L are the same
+
+
+def _lift_BEQ(insn, addr, il):
+    cond = il.compare_equal(4,
+                            il.reg(4, _reg_name(insn, "as")),
+                            il.reg(4, _reg_name(insn, "at")))
+    return _lift_cond(cond, insn, addr, il)
+
+def _lift_BEQI(insn, addr, il):
+    cond = il.compare_equal(4, il.reg(4, _reg_name(insn, "as")), il.const(4, insn.b4const()))
+    return _lift_cond(cond, insn, addr, il)
+
+def _lift_BEQZ(insn, addr, il):
+    cond = il.compare_equal(4, il.reg(4, _reg_name(insn, "as")), il.const(4, 0))
+    return _lift_cond(cond, insn, addr, il)
+
+_lift_BEQZ_N = _lift_BEQZ
+
+# TODO: def _lift_BF(insn, addr, il):
+
+def _lift_BGE(insn, addr, il):
+    cond = il.compare_signed_greater_equal(4,
+                                           il.reg(4, _reg_name(insn, "as")),
+                                           il.reg(4, _reg_name(insn, "at"))
+                                           )
+    return _lift_cond(cond, insn, addr, il)
+
+def _lift_BGEI(insn, addr, il):
+    cond = il.compare_signed_greater_equal(4,
+                                           il.reg(4, _reg_name(insn, "as")),
+                                           il.const(4, insn.b4const())
+                                           )
+    return _lift_cond(cond, insn, addr, il)
+
+def _lift_BGEU(insn, addr, il):
+    cond = il.compare_unsigned_greater_equal(4,
+                                             il.reg(4, _reg_name(insn, "as")),
+                                             il.reg(4, _reg_name(insn, "at"))
+    )
+    return _lift_cond(cond, insn, addr, il)
+
+def _lift_BGEUI(insn, addr, il):
+    cond = il.compare_unsigned_greater_equal(4,
+                                           il.reg(4, _reg_name(insn, "as")),
+                                           il.const(4, insn.b4constu())
+                                           )
+    return _lift_cond(cond, insn, addr, il)
+
+def _lift_BGEZ(insn, addr, il):
+    cond = il.compare_signed_greater_equal(4,
+                                           il.reg(4, _reg_name(insn, "as")),
+                                           il.const(4, 0))
+    return _lift_cond(cond, insn, addr, il)
+
+def _lift_BLT(insn, addr, il):
+    cond = il.compare_signed_less_than(4,
+                                       il.reg(4, _reg_name(insn, "as")),
+                                       il.reg(4, _reg_name(insn, "at"))
+                                       )
+    return _lift_cond(cond, insn, addr, il)
+
+def _lift_BLTI(insn, addr, il):
+    cond = il.compare_signed_less_than(4,
+                                       il.reg(4, _reg_name(insn, "as")),
+                                       il.const(4, insn.b4const())
+                                       )
+    return _lift_cond(cond, insn, addr, il)
+
+def _lift_BLTU(insn, addr, il):
+    cond = il.compare_unsigned_less_than(4,
+                                         il.reg(4, _reg_name(insn, "as")),
+                                         il.reg(4, _reg_name(insn, "at"))
+                                         )
+    return _lift_cond(cond, insn, addr, il)
+
+def _lift_BLTUI(insn, addr, il):
+    cond = il.compare_unsigned_less_than(4,
+                                         il.reg(4, _reg_name(insn, "as")),
+                                         il.const(4, insn.b4constu())
+                                       )
+    return _lift_cond(cond, insn, addr, il)
+
+def _lift_BLTZ(insn, addr, il):
+    cond = il.compare_signed_less_than(4,
+                                       il.reg(4, _reg_name(insn, "as")),
+                                       il.const(4, 0))
+    return _lift_cond(cond, insn, addr, il)
+
+
+def _lift_BNALL(insn, addr, il):
+    cond = il.compare_not_equal(4,
+                            il.and_expr(4,
+                                il.reg(4, _reg_name(insn, "at")),
+                                il.not_expr(4, il.reg(4, _reg_name(insn, "as")))
+                            ),
+                            il.const(4, 0))
+    return _lift_cond(cond, insn, addr, il)
+
+def _lift_BNE(insn, addr, il):
+    cond = il.compare_not_equal(4,
+                            il.reg(4, _reg_name(insn, "as")),
+                            il.reg(4, _reg_name(insn, "at")))
+    return _lift_cond(cond, insn, addr, il)
+
+def _lift_BNEI(insn, addr, il):
+    cond = il.compare_not_equal(4,
+                                il.reg(4, _reg_name(insn, "as")),
+                                il.const(4, insn.b4const()))
+    return _lift_cond(cond, insn, addr, il)
+
+def _lift_BNEZ(insn, addr, il):
+    cond = il.compare_not_equal(4,
+                                il.reg(4, _reg_name(insn, "as")),
+                                il.const(4, 0))
+    return _lift_cond(cond, insn, addr, il)
+
+_lift_BNEZ_N = _lift_BNEZ
+
+def _lift_BNONE(insn, addr, il):
+    cond = il.compare_equal(4,
+                            il.and_expr(4,
+                                il.reg(4, _reg_name(insn, "as")),
+                                il.reg(4, _reg_name(insn, "at"))
+                            ),
+                            il.const(4, 0))
+    return _lift_cond(cond, insn, addr, il)
+
 def _lift_CALL0(insn, addr, il):
     dest = il.const(4, insn.target_offset(addr))
     il.append(
@@ -208,6 +403,10 @@ def _lift_CALLX0(insn, addr, il):
     il.append(
         il.call(dest))
     return insn.length
+
+# TODO: Call4-12, Callx4-12
+
+# Bellow this point, I have not checked the instructions myself - Nicu
 
 def _lift_RET(insn, addr, il):
     dest = il.reg(4, 'a0')
@@ -371,20 +570,6 @@ def _lift_SLLI(insn, addr, il):
     return insn.length
 
 
-def _lift_BEQZ_N(insn, addr, il):
-    cond = il.compare_equal(4, il.reg(4, _reg_name(insn, "as")), il.const(4, 0))
-    return _lift_cond(cond, insn, addr, il)
-
-def _lift_AND(insn, addr, il):
-    il.append(
-        il.set_reg(4, _reg_name(insn, "ar"),
-                   il.and_expr(4,
-                              il.reg(4, _reg_name(insn, "as")),
-                              il.reg(4, _reg_name(insn, "at"))
-                              )))
-    return insn.length
-
-_lift_BEQZ = _lift_BEQZ_N
 
 def _lift_L16UI(insn, addr, il):
     va = il.add(4,
@@ -395,190 +580,6 @@ def _lift_L16UI(insn, addr, il):
                    il.zero_extend(4, il.load(2, va))))
     return insn.length
 
-def _lift_BNEZ(insn, addr, il):
-    cond = il.compare_not_equal(4,
-                                il.reg(4, _reg_name(insn, "as")),
-                                il.const(4, 0))
-    return _lift_cond(cond, insn, addr, il)
-
-_lift_BNEZ_N = _lift_BNEZ
-
-def _lift_BEQZ(insn, addr, il):
-    cond = il.compare_equal(4,
-                            il.reg(4, _reg_name(insn, "as")),
-                            il.const(4, 0))
-    return _lift_cond(cond, insn, addr, il)
-
-_lift_BEQZ_N = _lift_BEQZ
-
-def _lift_BNEI(insn, addr, il):
-    cond = il.compare_not_equal(4,
-                                il.reg(4, _reg_name(insn, "as")),
-                                il.const(4, insn.b4const()))
-    return _lift_cond(cond, insn, addr, il)
-
-def _lift_BEQI(insn, addr, il):
-    cond = il.compare_equal(4,
-                                il.reg(4, _reg_name(insn, "as")),
-                                il.const(4, insn.b4const()))
-    return _lift_cond(cond, insn, addr, il)
-
-def _lift_BALL(insn, addr, il):
-    cond = il.compare_equal(4,
-                            il.and_expr(4,
-                                il.reg(4, _reg_name(insn, "at")),
-                                il.not_expr(4, il.reg(4, _reg_name(insn, "as")))
-                            ),
-                            il.const(4, 0))
-    return _lift_cond(cond, insn, addr, il)
-
-def _lift_BNALL(insn, addr, il):
-    cond = il.compare_not_equal(4,
-                            il.and_expr(4,
-                                il.reg(4, _reg_name(insn, "at")),
-                                il.not_expr(4, il.reg(4, _reg_name(insn, "as")))
-                            ),
-                            il.const(4, 0))
-    return _lift_cond(cond, insn, addr, il)
-
-def _lift_BANY(insn, addr, il):
-    cond = il.compare_not_equal(4,
-                            il.and_expr(4,
-                                il.reg(4, _reg_name(insn, "as")),
-                                il.reg(4, _reg_name(insn, "at"))
-                            ),
-                            il.const(4, 0))
-    return _lift_cond(cond, insn, addr, il)
-
-def _lift_BNONE(insn, addr, il):
-    cond = il.compare_equal(4,
-                            il.and_expr(4,
-                                il.reg(4, _reg_name(insn, "as")),
-                                il.reg(4, _reg_name(insn, "at"))
-                            ),
-                            il.const(4, 0))
-    return _lift_cond(cond, insn, addr, il)
-
-def _lift_BBC(insn, addr, il):
-    cond = il.compare_equal(4,
-                            il.test_bit(4,
-                                il.reg(4, _reg_name(insn, "as")),
-                                # Strictly speaking we're supposed to check the
-                                # low 5 bits of at. I don't really see the need
-                                # to clutter the UI with it
-
-                                # Also: TODO: figure out which way Binja numbers
-                                # the bits
-                                il.reg(4, _reg_name(insn, "at"))
-                            ),
-                            il.const(4, 0))
-    return _lift_cond(cond, insn, addr, il)
-
-def _lift_BBS(insn, addr, il):
-    cond = il.test_bit(4,
-        il.reg(4, _reg_name(insn, "as")),
-        # Strictly speaking we're supposed to check the
-        # low 5 bits of at. I don't really see the need
-        # to clutter the UI with it
-        il.reg(4, _reg_name(insn, "at")))
-    return _lift_cond(cond, insn, addr, il)
-
-def _lift_BBCI(insn, addr, il):
-    cond = il.compare_equal(4,
-                            il.test_bit(4,
-                                il.reg(4, _reg_name(insn, "as")),
-                                # Also: TODO: figure out which way Binja numbers
-                                # the bits
-                                il.const(4, insn.inline0(addr))
-                            ),
-                            il.const(4, 0))
-    return _lift_cond(cond, insn, addr, il)
-
-def _lift_BBSI(insn, addr, il):
-    cond = il.test_bit(4,
-        il.reg(4, _reg_name(insn, "as")),
-        il.const(4, insn.inline0(addr)))
-    return _lift_cond(cond, insn, addr, il)
-
-def _lift_BEQ(insn, addr, il):
-    cond = il.compare_equal(4,
-                            il.reg(4, _reg_name(insn, "as")),
-                            il.reg(4, _reg_name(insn, "at")))
-    return _lift_cond(cond, insn, addr, il)
-
-def _lift_BNE(insn, addr, il):
-    cond = il.compare_not_equal(4,
-                            il.reg(4, _reg_name(insn, "as")),
-                            il.reg(4, _reg_name(insn, "at")))
-    return _lift_cond(cond, insn, addr, il)
-
-def _lift_BGE(insn, addr, il):
-    cond = il.compare_signed_greater_equal(4,
-                                           il.reg(4, _reg_name(insn, "as")),
-                                           il.reg(4, _reg_name(insn, "at"))
-                                           )
-    return _lift_cond(cond, insn, addr, il)
-
-def _lift_BGEU(insn, addr, il):
-    cond = il.compare_unsigned_greater_equal(4,
-                                             il.reg(4, _reg_name(insn, "as")),
-                                             il.reg(4, _reg_name(insn, "at"))
-    )
-    return _lift_cond(cond, insn, addr, il)
-
-def _lift_BGEI(insn, addr, il):
-    cond = il.compare_signed_greater_equal(4,
-                                           il.reg(4, _reg_name(insn, "as")),
-                                           il.const(4, insn.b4const())
-                                           )
-    return _lift_cond(cond, insn, addr, il)
-
-def _lift_BGEUI(insn, addr, il):
-    cond = il.compare_unsigned_greater_equal(4,
-                                           il.reg(4, _reg_name(insn, "as")),
-                                           il.const(4, insn.b4constu())
-                                           )
-    return _lift_cond(cond, insn, addr, il)
-
-def _lift_BGEZ(insn, addr, il):
-    cond = il.compare_signed_greater_equal(4,
-                                           il.reg(4, _reg_name(insn, "as")),
-                                           il.const(4, 0))
-    return _lift_cond(cond, insn, addr, il)
-
-def _lift_BLT(insn, addr, il):
-    cond = il.compare_signed_less_than(4,
-                                       il.reg(4, _reg_name(insn, "as")),
-                                       il.reg(4, _reg_name(insn, "at"))
-                                       )
-    return _lift_cond(cond, insn, addr, il)
-
-def _lift_BLTU(insn, addr, il):
-    cond = il.compare_unsigned_less_than(4,
-                                         il.reg(4, _reg_name(insn, "as")),
-                                         il.reg(4, _reg_name(insn, "at"))
-                                         )
-    return _lift_cond(cond, insn, addr, il)
-
-def _lift_BLTI(insn, addr, il):
-    cond = il.compare_signed_less_than(4,
-                                       il.reg(4, _reg_name(insn, "as")),
-                                       il.const(4, insn.b4const())
-                                       )
-    return _lift_cond(cond, insn, addr, il)
-
-def _lift_BLTUI(insn, addr, il):
-    cond = il.compare_unsigned_less_than(4,
-                                         il.reg(4, _reg_name(insn, "as")),
-                                         il.const(4, insn.b4constu())
-                                       )
-    return _lift_cond(cond, insn, addr, il)
-
-def _lift_BLTZ(insn, addr, il):
-    cond = il.compare_signed_less_than(4,
-                                       il.reg(4, _reg_name(insn, "as")),
-                                       il.const(4, 0))
-    return _lift_cond(cond, insn, addr, il)
 
 def _lift_SUB(insn, addr, il):
     il.append(

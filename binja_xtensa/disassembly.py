@@ -253,10 +253,13 @@ _disassemble_BANY = _dis("as at target_offset")
 _disassemble_BBC = _dis("as at target_offset")
 _disassemble_BBCI = _dis("as inline0 target_offset",
                          lambda insn, _: _get_imm8_tok(insn.inline0(_)))
-_disassemble_BBS = _dis("as at target_offset")
+_disassemble_BBCI_L = _disassemble_BBCI # We use Little Endinan --> BBCI and BBCI_L are the same
 
+_disassemble_BBS = _dis("as at target_offset")
 _disassemble_BBSI = _dis("as inline0 target_offset",
                          lambda insn, _: _get_imm8_tok(insn.inline0(_)))
+_disassemble_BBSI_L = _disassemble_BBSI
+
 _disassemble_BEQ = _dis("as at target_offset")
 _disassemble_BEQI = _dis("as b4const target_offset")
 _disassemble_BEQZ = _dis("as target_offset")
