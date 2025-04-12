@@ -26,7 +26,7 @@ def _reg_name(insn, fmt, offset=0):
         val = getattr(insn, rest, None)
         if val is None:
             raise Exception("Could not find property " + fmt)
-        return str(val+offset)
+        return int(val+offset)          
     else:
         # When we lift boolean instructions, we'll need to add support for "f"
         # registers, etc.
@@ -128,53 +128,23 @@ def _lift_subx(x_bits, insn, addr, il):
 # Boolean option Chapter 4.3.10 #
 #################################
 def _lift_anyall(insn, addr, il, op):
-    t = _reg_name(insn, "bt")
     s = _reg_name(insn, "bs")
-    br = il.reg(4, "br")
-    mask_2t = il.const(2, 2**t)
-    offset = int(op[-1])//2 #  get the offset for the shift based on the operation (e.g. 2 for ALL4, or 4 for ALL8)
+    s_reg = il.reg(1, "b" + str(_reg_name(insn, "bs")))
+    t_reg = il.reg(1, "b" + str(_reg_name(insn, "bt")))
+    offset = int(op[-1]) # get the size of the instruction (4 or 8)
+    
+    temp = s_reg
+    for idx in range(s+1, s+offset):
+        if op[:-1] == "ALL":
+            temp = il.and_expr(1, temp, il.reg(1, "b" + str(idx)))
+        elif op[:-1] == "ANY":
+            temp = il.or_expr(1, temp, il.reg(1, "b" + str(idx)))
+        else:
+            raise Exception("Wrong op used in _lift_anyall4. Can only use ANY4, ANY8, ALL4, ALL8, but op was " + op)
 
-    # Explanation for ALL4, everything else is similar:
-    # I represent si as BR[s+i], where br is one single 2byte register
-    # We need to compute BR[t] = s0 & s1 & s2 & s3
-    # We shift BR to AND together s0|s1 and s2|s3
-    # Afterward, we shift the result by 1, and AND the results, getting the final result
-    shifted_low1 = il.logical_shift_right(2, br, il.const(2,s))
-    shifted_high1 = il.logical_shift_right(2, br, il.const(2,(s+offset)))
-
-    if op == "ALL4":
-        temp =          il.and_expr(2, shifted_low1, shifted_high1)
-        temp_shifted =  il.logical_shift_right(2, temp, il.const(2, 1))
-        result =        il.and_expr(2, temp, temp_shifted)
-    elif op == "ANY4":
-        temp =          il.or_expr(2, shifted_low1, shifted_high1)
-        temp_shifted =  il.logical_shift_right(2, temp, il.const(2, 1))
-        result =        il.or_expr(2, temp, temp_shifted)
-    elif op == "ALL8":
-        temp =          il.and_expr(2, shifted_low1, shifted_high1)
-        temp_shifted =  il.logical_shift_right(2, temp, il.const(2, 2))
-        temp1 =         il.and_expr(2, temp, temp_shifted)
-        temp1_shifted = il.logical_shift_right(2, temp1, il.const(2, 1))
-        result =        il.and_expr(2, temp1, temp1_shifted)
-    elif op == "ANY8":
-        temp =          il.or_expr(2, shifted_low1, shifted_high1)
-        temp_shifted =  il.logical_shift_right(2, temp, il.const(2, 2))
-        temp1 =         il.or_expr(2, temp, temp_shifted)
-        temp1_shifted = il.logical_shift_right(2, temp1, il.const(2, 1))
-        result =        il.or_expr(2, temp1, temp1_shifted)
-    else:
-        raise Exception("Wrong op used in _lift_anyall4. Can only use ANY4, ANY8, ALL4, ALL8, but op was " + op)
-
-    # Shift the bit to the position of the t bit
-    result_bit = il.shift_left(4, 
-                    il.and_expr(2, result, il.const(2, 1)),  # Only get the least significant bit
-                    il.const(2, t))
-
-    # Empty the t-th bit in BR, to then replace it with the result
-    br_empty_bit = il.and_expr(2, il.reg(4, "br"), mask_2t)
-    il.append(il.set_reg(2, br,
-                    il.or_expr(2, br_empty_bit, result_bit)))
+    il.append(il.set_reg(2, t_reg, temp))
     return insn.length
+
 def _lift_ALL4(insn, addr, il):
     return _lift_anyall(insn, addr, il, "ALL4")
 def _lift_ALL8(insn, addr, il):
@@ -186,37 +156,20 @@ def _lift_ANY8(insn, addr, il):
 
 # Helper function to implement binary operations of boolean registers
 def _lift_binop_B(insn, addr, il, op):
-    r = _reg_name(insn, "br")
-    t = _reg_name(insn, "bt")
-    s = _reg_name(insn, "bs")
-    br = il.reg(4, "br")
-    mask_2r = il.const(2, 2**r)
-
-    # Get the right bit of the register, and the negation of bt
-    bit_s = il.logical_shift_right(2, br, il.const(2,s))
-    bit_t = il.logical_shift_right(2, br, il.const(2,t))
-    bit_t_neg = il.not_expr(2, il.logical_shift_right(2, br, il.const(2,t)))
+    r = il.reg(1, "b" + str(_reg_name(insn, "br")))
+    t = il.reg(1, "b" + str(_reg_name(insn, "bt")))
+    s = il.reg(1, "b" + str(_reg_name(insn, "bs")))
+    
+    bit_t_neg = il.not_expr(1, t) # Negate bit if necessary
     match op:
-        case "ANDB":
-            temp = il.and_expr(2, bit_s, bit_t)
-        case "ANDBC":
-            temp = il.and_expr(2, bit_s, bit_t_neg)
-        case "ORB":
-            temp = il.or_expr(2,  bit_s, bit_t)
-        case "ORBC":
-            temp = il.or_expr(2,  bit_s, bit_t_neg)
-        case "XORB":
-            temp = il.xor_expr(2, bit_s, bit_t)
-
-    # Shift the bit to the position of the t bit
-    result_bit = il.shift_left(4, 
-                        il.and_expr(2, temp, il.const(2, 1)), # Only get the least significant bit
-                        il.const(2, r))
-    # Empty the t-th bit in BR, to then replace it with the result
-    br_empty_bit = il.and_expr(2, br, mask_2r)
-    il.append(il.set_reg(2, br,
-                    il.or_expr(2, br_empty_bit, result_bit)))
+        case "ANDB":    temp = il.and_expr(1, s, t)
+        case "ANDBC":   temp = il.and_expr(1, s, bit_t_neg)
+        case "ORB":     temp = il.or_expr(1,  s, t)
+        case "ORBC":    temp = il.or_expr(1,  s, bit_t_neg)
+        case "XORB":    temp = il.xor_expr(1, s, t)
+    il.append(il.set_reg(2, r, temp))
     return insn.length
+
 def _lift_ANDB(insn, addr, il):
     return _lift_binop_B(insn, addr, il, "ANDB")
 def _lift_ANDBC(insn, addr, il):
@@ -230,39 +183,32 @@ def _lift_XORB(insn, addr, il):
 
 # Helper function for BF and BT, as only difference is the value of the condition
 def _lift_BFT(insn, addr, il, bit):
-    s = _reg_name(insn, "bs")
-    br = il.reg(4, "br")
-
-    bit_s = il.and_expr(2, 
-                il.logical_shift_right(2, br, il.const(2,s)), 
-                il.const(2, 1))
-    cond = il.compare_equal(2, il.reg(4, bit_s, il.const(4, bit))) # 
+    s = il.reg(1, "b" + str(_reg_name(insn, "bs")))
     
-    true_label = LowLevelILLabel()
-    false_label = LowLevelILLabel()
+    cond = il.compare_equal(1, s, il.const(1, bit)) # 
+    true_label, false_label = LowLevelILLabel(), LowLevelILLabel()
+
     il.append(il.if_expr(cond, true_label, false_label))
     il.mark_label(true_label)
     il.append(il.jump(il.const(4, insn.target_offset(addr))))
     il.mark_label(false_label)
     return insn.length
-def _lift_BF(insn, addr, il, bit):
+
+def _lift_BF(insn, addr, il):
     return _lift_BFT(insn, addr, il, 0)
-def _lift_BT(insn, addr, il, bit):
+def _lift_BT(insn, addr, il):
     return _lift_BFT(insn, addr, il, 1)
 
 # Helper function for MOVF and MOVT, as only difference is the value of the condition
 def _lift_MOVFT(insn, addr, il, bit):
     t = _reg_name(insn, "bt")
-    br = il.reg(4, "br")
-
-    bit_t = il.and_expr(2, 
-                il.logical_shift_right(2, br, il.const(2, t)), 
-                il.const(2, 1))
-    cond = il.compare_equal(2, il.reg(4, bit_t, il.const(4, bit)))
+    t = il.reg(1, "b" + str(_reg_name(insn, "bt")))
+    cond = il.compare_equal(1,  t, il.const(1, bit))
     return _lift_cmov(cond, insn, addr, il)
-def _lift_MOVF(insn, addr, il, bit):
+
+def _lift_MOVF(insn, addr, il):
     return _lift_MOVFT(insn, addr, il, 0)
-def _lift_MOVT(insn, addr, il, bit):
+def _lift_MOVT(insn, addr, il):
     return _lift_MOVFT(insn, addr, il, 1)
 
 # From here on down, I lifted instructions in priority order of how much

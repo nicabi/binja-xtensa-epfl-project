@@ -31,6 +31,8 @@ Also problem, 3 different call functions for each increment value, only one retw
 # Setup and Testing
 To add the plugin to binja, just create a symlink to the source code in the plugins folder of binary ninja
 
+God knows how I got here, but this kinda seems to work:
+ xt-clang --xtensa-core=XRC_FusionF1_All_cache -c test_bin.S -o a.o
 
 # Code structure:
 __init__.py --> entry point for plugin, references filees: instruction.py, disassembly.py, lifter.py and binaryview.py
