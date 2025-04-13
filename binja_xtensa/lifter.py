@@ -21,12 +21,18 @@ def _reg_name(insn, fmt, offset=0):
         if val is None:
             raise Exception("Could not find property " + fmt)
         return "a" + str(val+offset)
-    if fmt.startswith("b"):
+    elif fmt.startswith("b"):
         rest = fmt[1:]
         val = getattr(insn, rest, None)
         if val is None:
             raise Exception("Could not find property " + fmt)
         return int(val+offset)          
+    elif fmt.startswith("f"):
+        rest = fmt[1:]
+        val = getattr(insn, rest, None)
+        if val is None:
+            raise Exception("Could not find property " + fmt)
+        return "f" + str(val+offset)
     else:
         # When we lift boolean instructions, we'll need to add support for "f"
         # registers, etc.

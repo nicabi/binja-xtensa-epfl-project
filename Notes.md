@@ -85,3 +85,8 @@ Dissassembly file:
     LOOP, LOOPGTZ, LOOPNEZ, loop option
     WUR --> Check if it works
 
+
+
+# Problems encountered:
+ - MULL instruction gets assigned a different opcode by the xt-clang compiler. It's the length of 2 3-byte instrucitons: 25 70 fe f1 9f 58 (Assembbly mull a2, a8, a5 )
+ - This happens to many floating point operations as well...
