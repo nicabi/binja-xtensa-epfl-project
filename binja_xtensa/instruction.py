@@ -478,10 +478,12 @@ class Instruction:
             name = "_decode_" + map[index]
         except IndexError:
             raise Exception(f"Unsupported index {index} in map {map}")
+        except:
+            print(f"[EXCEPTION] No configuration for bytes {insn_bytes.hex()} --> index {index} in map {map}")
 
         func = getattr(Instruction, name, None)
         if not func:
-            raise Exception(f"Unimplemented: {name}")
+            raise Exception(f"Unimplemented: {name} -  bytes: {insn_bytes.hex()}")
 
         return func(insn, insn_bytes)
 
@@ -867,18 +869,18 @@ class Instruction:
         # Format RRR (t, s, r vary)
         return cls._do_tbl_layer(insn, insn_bytes, "op2", cls._fp0_map)
 
-    _decode_ADD_S = mnem("ADD_S", "RRR")
-    _decode_SUB_S = mnem("SUB_S", "RRR")
-    _decode_MUL_S = mnem("MUL_S", "RRR")
-    _decode_MADD_S = mnem("MADD_S", "RRR")
-    _decode_MSUB_S = mnem("MSUB_S", "RRR")
-    _decode_ROUND_S = mnem("ROUND_S", "RRR")
-    _decode_TRUNC_S = mnem("TRUNC_S", "RRR")
-    _decode_FLOOR_S = mnem("FLOOR_S", "RRR")
-    _decode_CEIL_S = mnem("CEIL_S", "RRR")
-    _decode_FLOAT_S = mnem("FLOAT_S", "RRR")
-    _decode_UFLOAT_S = mnem("UFLOAT_S", "RRR")
-    _decode_UTRUNC_S = mnem("UTRUNC_S", "RRR")
+    _decode_ADD_S = mnem("ADD.S", "RRR")
+    _decode_SUB_S = mnem("SUB.S", "RRR")
+    _decode_MUL_S = mnem("MUL.S", "RRR")
+    _decode_MADD_S = mnem("MADD.S", "RRR")
+    _decode_MSUB_S = mnem("MSUB.S", "RRR")
+    _decode_ROUND_S = mnem("ROUND.S", "RRR")
+    _decode_TRUNC_S = mnem("TRUNC.S", "RRR")
+    _decode_FLOOR_S = mnem("FLOOR.S", "RRR")
+    _decode_CEIL_S = mnem("CEIL.S", "RRR")
+    _decode_FLOAT_S = mnem("FLOAT.S", "RRR")
+    _decode_UFLOAT_S = mnem("UFLOAT.S", "RRR")
+    _decode_UTRUNC_S = mnem("UTRUNC.S", "RRR")
 
     _fp1op_map = [
         "MOV_S", "ABS_S", None, None, # None is reserved
@@ -1039,6 +1041,17 @@ class Instruction:
         # format RRR (t, s, r, op1 vary)
         return cls._do_tbl_layer(insn, insn_bytes, "op2", cls._mac16_map)
 
+
+
+    # MAC16 STUFF:
+    
+    _macdd_map = [
+        None, None, None, None,
+        "MULL_DD_LL", "MULL_DD_LL", "MULL_DD_LL", "MULL_DD_LL",
+        "MULL_DD_LL", "MULL_DD_LL", "MULL_DD_LL", "MULL_DD_LL",
+        "MULL_DD_LL", "MULL_DD_LL", "MULL_DD_LL", "MULL_DD_LL",
+    ]
+    
     # TODO: Skipping this MAC stuff, seems like a vector processor, that I doubt
     # the ESP8266 has... 
 

@@ -52,7 +52,7 @@ from binaryninja import (Architecture, BinaryViewType, CallingConvention,
 from binaryninja.enums import (BranchType, Endianness, FlagRole,
                                LowLevelILFlagCondition)
 
-from .instruction import Instruction
+from .instruction import Instruction, InstructionType
 from .disassembly import disassemble_instruction
 from .lifter import lift
 from .binaryview import ESPFirmware
@@ -93,15 +93,14 @@ class XtensaLE(Architecture):
         # Floating register 4.3.11.1
         'fcr': RegisterInfo("fcr", 4, 0), # Floating-point control register
         'fsr': RegisterInfo("fsr", 4, 0), # Floating-point status register
-        
         'sar': RegisterInfo("sar", 1, 0), # Shift Address Register: Not a GPR
         'callinc': RegisterInfo("callinc", 1, 0), # Call Increment: Not a GPR
     }
     # Floating-point registers Chapter 4.3.11
     for i in range(16):
         regs[f"f{i}"] = RegisterInfo(f"f{i}", 4, 0)
-
     # Boolean registers - Chapter 4.3.10
+    # Theoretically 16 1-bit register, represented as 1 16-bit register, but makes decompilation unclear    
     for i in range(16):
         regs[f"b{i}"] = RegisterInfo(f"b{i}", 1, 0)
 
@@ -148,8 +147,7 @@ class XtensaLE(Architecture):
             result.add_branch(BranchType.CallDestination,
                               insn.target_offset(addr))
         elif insn.mnem in ["CALLX0", "CALLX4", "CALLX8", "CALLX12"]:
-            pass
-            #result.add_branch(BranchType.IndirectBranch)
+            result.add_branch(BranchType.IndirectBranch)
 
         elif insn.mnem in ["SYSCALL"]:
             result.add_branch(BranchType.SystemCall)
@@ -180,6 +178,7 @@ class XtensaCall0CallingConvention(CallingConvention):
     caller_saved_regs = ["a0", "a2", "a3", "a4", "a5", "a6", "a7", "a8", "a9",
                          "a10", "a11"]
     int_arg_regs = ["a2", "a3", "a4", "a5", "a6", "a7"]
+    implicitly_defined_regs =[f"b{i}" for i in range(16)]
     int_return_reg = "a2"
     high_int_return_reg = "a3"
 

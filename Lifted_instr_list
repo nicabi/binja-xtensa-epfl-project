@@ -7,6 +7,23 @@ FLOAT.S   - test, float
 FLOOR.S   - test, float
 
 
+# New, Boolean operations
+ANDB  - test
+ANDBC - test
+ORB  - test
+ORBC - test
+XORB - test
+
+ALL4 - test
+ALL8 - test
+ANY4  - test
+ANY8  - test
+
+BF - test
+BT - test
+MOVF - test
+MOVT - test
+
 # Checked myself
 ADD
 ADD.N

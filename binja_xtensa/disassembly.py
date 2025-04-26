@@ -109,6 +109,7 @@ _disassembly_fmts = {
 
     "s": lambda insn, _: _get_imm8_tok(insn.s),
     "t": lambda insn, _: _get_imm8_tok(insn.t),
+    "r": lambda insn, _: _get_imm8_tok(insn.r),
 
     "imm4": _get_imm4,
 
@@ -251,12 +252,13 @@ _disassemble_BANY = _dis("as at target_offset")
 _disassemble_BBC = _dis("as at target_offset")
 _disassemble_BBCI = _dis("as inline0 target_offset",
                          lambda insn, _: _get_imm8_tok(insn.inline0(_)))
-_disassemble_BBCI_L = _disassemble_BBCI # We use Little Endinan --> BBCI and BBCI_L are the same
-
+_disassemble_BBCI_L = _dis("as inline0 target_offset",
+                         lambda insn, _: _get_imm8_tok(insn.inline0(_)))
 _disassemble_BBS = _dis("as at target_offset")
 _disassemble_BBSI = _dis("as inline0 target_offset",
                          lambda insn, _: _get_imm8_tok(insn.inline0(_)))
-_disassemble_BBSI_L = _disassemble_BBSI
+_disassemble_BBSI_L = _dis("as inline0 target_offset",
+                         lambda insn, _: _get_imm8_tok(insn.inline0(_)))
 
 _disassemble_BEQ = _dis("as at target_offset")
 _disassemble_BEQI = _dis("as b4const target_offset")
@@ -294,9 +296,23 @@ _disassemble_CALLX4  = _dis("as")
 _disassemble_CALLX8  = _dis("as")
 _disassemble_CALLX12 = _dis("as")
 
-# Skipping CLAMPS, I don't care about floats
-# Skipping DHI, DHU, DHWB, DHWBI, DII, DIU, DIWB, DIWBI, DPFL, DPFR, DPFRO,
-# DPFW, DPFWO, they deal with data caching, which is an extension
+_disassemble_CLAMPS = _dis("ar as inline0",
+                         lambda insn, _: _get_imm8_tok(insn.t + 7))
+# Data Cache Option instructions
+_disassemble_DHI = _dis("as imm8")
+_disassemble_DHU = _dis("as imm4")
+_disassemble_DHWB = _dis("as imm8")
+_disassemble_DHWBI = _dis("as imm8")
+_disassemble_DII = _dis("as imm8")
+_disassemble_DIU = _dis("as imm4")
+_disassemble_DIWB = _dis("as imm4")
+_disassemble_DIWBI = _dis("as imm4")
+_disassemble_DPFL = _dis("as imm4")
+_disassemble_DPFR = _dis("as imm8")
+_disassemble_DPFRO = _dis("as imm8")
+_disassemble_DPFW = _dis("as imm8")
+_disassemble_DPFWO = _dis("as imm8")
+
 _disassemble_DSYNC = _dis("") # Just the mnem
 _disassemble_ENTRY = _dis("as inline0",
                           lambda insn, _: _get_imm32_tok(insn.inline0(_)))
@@ -306,13 +322,20 @@ _disassemble_EXTUI = _dis("ar at inline0 inline1",
                          lambda insn, _: _get_imm8_tok(insn.extui_shiftimm()),
                          lambda insn, _: _get_imm8_tok(insn.inline1(_)))
 _disassemble_EXTW = _dis("")
+
+
 _disassemble_IDTLB = _dis("as")
-# Skipping IHI, IHU, III
+
+_disassemble_IHI = _dis("as imm8")
+_disassemble_IHU = _dis("as imm4")
+_disassemble_III = _dis("as imm8")
+_disassemble_IIU = _dis("as imm4")
+_disassemble_IPF = _dis("as imm8")
+_disassemble_IPFL = _dis("as imm4")
+
 _disassemble_IITLB = _dis("as")
-# Skipping IIU
 _disassemble_ILL = _dis("")
 _disassemble_ILL_N = _dis("")
-# Skipping IPF, IPFL
 _disassemble_ISYNC = _dis("")
 _disassemble_J = _dis("target_offset")
 _disassemble_JX = _dis("as")
@@ -323,28 +346,49 @@ _disassemble_L16UI = _dis("at as inline0",
                           lambda insn, _: _get_imm32_tok(insn.inline0(_)))
 _disassemble_L32AI = _dis("at as inline0",
                           lambda insn, _: _get_imm32_tok(insn.inline0(_)))
-# Skipping windowed L32E
+
+_disassemble_L32E = _dis("at as inline0",
+                          lambda insn, _: _get_imm8_tok((insn.r << 2) - 64))
+
 _disassemble_L32I = _dis("at as inline0",
                           lambda insn, _: _get_imm32_tok(insn.inline0(_)))
 _disassemble_L32I_N = _dis("at as inline0",
                           lambda insn, _: _get_imm32_tok(insn.inline0(_)))
 _disassemble_L32R = _dis("at mem_offset")
-# Skipping LDCT
-# Skipping LDDEC,LDINC; they're MAC16
-# Skipping LICT, LICW, instruction cache option
-# Skipping LOOP, LOOPGTZ, LOOPNEZ, loop option
+
+_disassemble_LDCT = _dis("at as")
+
+# MAC16 option  - TODO - Test when implementing module
+_disassemble_LDDEC = _dis("mw as")
+_disassemble_LDINC = _dis("mw as")
+
+_disassemble_LICT = _dis("at as")
+_disassemble_LICW = _dis("at as")
+
+# Loop Options - TODO - Test
+_disassemble_LOOP = _dis("as imm8")
+_disassemble_LOOPGTZ = _dis("as imm8")
+_disassemble_LOOPNEZ = _dis("as imm8")
+
+# Float options - TODO - test
+_disassemble_MULL = _dis("ar as at")
+
 _disassemble_MEMW = _dis("")
 _disassemble_MOVI = _dis("at inline0",
                          lambda insn, _: _get_imm32_tok(insn.inline0(_)))
 _disassemble_MOVI_N = _dis("as inline0",
                            lambda insn, _: _get_imm32_tok(insn.inline0(_)))
 _disassemble_MOV_N = _dis("at as")
+_disassemble_MOVF = _dis("ar as bt")
 _disassemble_MOVSP = _dis("at as")
+_disassemble_MOVT = _dis("ar as bt")
 _disassemble_NEG = _dis("ar at")
 _disassemble_NOP = _dis("")
 _disassemble_NOP_N = _dis("")
 _disassemble_NSA = _dis("at as")
 _disassemble_NSAU = _dis("at as")
+_disassemble_ORB = _dis("br bs bt")
+_disassemble_ORBC = _dis("br bs bt")
 _disassemble_PDTLB = _dis("at as")
 _disassemble_PITLB = _dis("at as")
 _disassemble_RDTLB0 = _dis("at as")
@@ -370,6 +414,8 @@ _disassemble_RSYNC = _dis("")
 _disassemble_S8I = _dis("at as imm8")
 _disassemble_S16I = _dis("at as inline0",
                          lambda insn, _: _get_imm32_tok(insn.inline0(_)))
+_disassemble_S32E = _dis("at as inline0",
+                          lambda insn, _: _get_imm8_tok((insn.r << 2) - 64))
 _disassemble_S32I = _dis("at as inline0",
                          lambda insn, _: _get_imm32_tok(insn.inline0(_)))
 _disassemble_S32I_N = _dis("at as inline0",
@@ -399,46 +445,51 @@ _disassemble_WDTLB = _dis("at as")
 _disassemble_WER = _dis("at as")
 _disassemble_WITLB = _dis("at as")
 _disassemble_WER = _dis("at as")
+_disassemble_XORB = _dis("br bs bt")
+
 # _disassemble_WUR = _dis("at sr") # sr not yet handled
 
+# Dissassembling all Floating-Point Coprocessor Option 
+_disassemble_ABS_S    = _dis("fr fs")
+_disassemble_NEG_S    = _dis("fr fs")  
+_disassemble_ADD_S    = _dis("fr fs ft")
+_disassemble_SUB_S    = _dis("fr fs ft")  
+_disassemble_MADD_S   = _dis("fr fs ft")
+_disassemble_MSUB_S   = _dis("fr fs ft")  
+_disassemble_MUL_S    = _dis("fr fs ft")
 
-# All Floating-Point operations dissassembled:
+_disassemble_CEIL_S   = _dis("ar fs t")
+_disassemble_FLOAT_S  = _dis("fr as t")
+_disassemble_UFLOAT_S = _dis("fr as t")  
+_disassemble_FLOOR_S  = _dis("ar fs t")
+_disassemble_TRUNC_S  = _dis("ar fs t")
+_disassemble_UTRUNC_S = _dis("ar fs t")  
+_disassemble_ROUND_S  = _dis("ar fs t")  
 
-_disassemble_ABS_S =    _dis("fr fs")
-_disassemble_ADD_S =    _dis("fr fs ft")
-_disassemble_CEIL_S =   _dis("ar fs t")
-_disassemble_FLOAT_S =  _dis("fr as t")
-_disassemble_FLOOR_S =  _dis("ar fs t")
-_disassemble_LSI =      _dis("ft as imm8")
-_disassemble_LSIU =     _dis("ft as imm8")
-_disassemble_LSX =      _dis("fr as at")
-_disassemble_LSXU =     _dis("fr as at")
-_disassemble_MADD_S =   _dis("fr fs ft")
-_disassemble_MOV_S =    _dis("fr fs")
-_disassemble_MOVF_S =   _dis("fr fs bt")
-_disassemble_MOVEQZ_S = _dis("fr fs at")
-_disassemble_MOVGEZ_S = _dis("fr fs at")
-_disassemble_MOVLTZ_S = _dis("fr fs at")
-_disassemble_MOVNEZ_S = _dis("fr fs at")
-_disassemble_MOVT_S =   _dis("fr fs bt")
-_disassemble_MSUB_S =   _dis("fr fs ft")
-_disassemble_MUL_S =    _dis("fr fs ft")
-_disassemble_NEG_S =    _dis("fr fs")
-_disassemble_OEQ_S =    _dis("br fs ft")
-_disassemble_OLE_S =    _dis("br fs ft")
-_disassemble_OLT_S =    _dis("br fs ft")
-_disassemble_RFR =      _dis("ar fs")
-_disassemble_ROUND_S =  _dis("ar fs t")
-_disassemble_SSI =      _dis("ft as imm8")
-_disassemble_SSIU =     _dis("ft as imm8")
-_disassemble_SSX =      _dis("fr as at")
-_disassemble_SSXU =     _dis("fr as at")
-_disassemble_SUB_S =    _dis("fr fs ft")
-_disassemble_TRUNC_S =  _dis("ar fs t")
-_disassemble_UEQ_S =    _dis("br fs ft")
-_disassemble_UFLOAT_S = _dis("fr as t")
-_disassemble_ULE_S =    _dis("br fs ft")
-_disassemble_ULT_S =    _dis("br fs ft")
-_disassemble_UN_S =     _dis("br fs ft")
-_disassemble_UTRUNC_S = _dis("ar fs t")
-_disassemble_WFR =      _dis("fr as")
+_disassemble_MOV_S    = _dis("fr fs") 
+_disassemble_MOVNEZ_S = _dis("fr fs at")  
+_disassemble_MOVEQZ_S = _dis("fr fs at")  
+_disassemble_MOVGEZ_S = _dis("fr fs at")  
+_disassemble_MOVLTZ_S = _dis("fr fs at")  
+_disassemble_MOVT_S   = _dis("fr fs bt")  
+_disassemble_MOVF_S   = _dis("fr fs bt")  
+
+_disassemble_OEQ_S    = _dis("br fs ft")  
+_disassemble_OLE_S    = _dis("br fs ft")
+_disassemble_OLT_S    = _dis("br fs ft")  
+_disassemble_UEQ_S    = _dis("br fs ft")  
+_disassemble_ULT_S    = _dis("br fs ft")  
+_disassemble_ULE_S    = _dis("br fs ft")  
+_disassemble_UN_S     = _dis("br fs ft")  
+
+_disassemble_LSI      = _dis("ft as imm8")
+_disassemble_LSIU     = _dis("ft as imm8")
+_disassemble_LSX      = _dis("fr as at")
+_disassemble_LSXU     = _dis("fr as at")
+_disassemble_SSI      = _dis("ft as imm8")
+_disassemble_SSIU     = _dis("ft as imm8")
+_disassemble_SSX      = _dis("fr as at")
+_disassemble_SSXU     = _dis("fr as at")
+
+_disassemble_RFR      = _dis("ar fs")  
+_disassemble_WFR      = _dis("fr as")  

@@ -31,6 +31,8 @@ Also problem, 3 different call functions for each increment value, only one retw
 # Setup and Testing
 To add the plugin to binja, just create a symlink to the source code in the plugins folder of binary ninja
 
+God knows how I got here, but this kinda seems to work:
+ xt-clang --xtensa-core=XRC_FusionF1_All_cache -c test_bin.S -o a.o
 
 # Code structure:
 __init__.py --> entry point for plugin, references filees: instruction.py, disassembly.py, lifter.py and binaryview.py
@@ -82,4 +84,19 @@ Dissassembly file:
     LICT, LICW, instruction cache option
     LOOP, LOOPGTZ, LOOPNEZ, loop option
     WUR --> Check if it works
+
+
+
+# Problems encountered:
+ - MULL instruction gets assigned a different opcode by the xt-clang compiler. It's the length of 2 3-byte instrucitons: 25 70 fe f1 9f 58 (Assembbly mull a2, a8, a5 )
+ - This happens to many floating point operations as well...
+ - standard is usually not followed -> How can we avoid/change this? --> to mention in report
+ - Problems with disassembling because instructions did not have lifting 
+
+TODO:
+Follow-up with Ryan
+
+lifting is hard --> Paragraph on why it is needed, what doesn't work etc.
+
+
 

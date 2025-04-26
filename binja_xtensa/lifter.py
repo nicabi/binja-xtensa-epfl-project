@@ -8,7 +8,7 @@ from binaryninja import Architecture, LowLevelILLabel
 
 from .instruction import sign_extend
 
-def _reg_name(insn, fmt,offset=0):
+def _reg_name(insn, fmt, offset=0):
     """Get the concrete register for a particular part of an instruction
 
     For example, if the docs say an instruction writes to "as", we call this
@@ -21,8 +21,20 @@ def _reg_name(insn, fmt,offset=0):
         if val is None:
             raise Exception("Could not find property " + fmt)
         return "a" + str(val+offset)
+    elif fmt.startswith("b"):
+        rest = fmt[1:]
+        val = getattr(insn, rest, None)
+        if val is None:
+            raise Exception("Could not find property " + fmt)
+        return int(val+offset)          
+    elif fmt.startswith("f"):
+        rest = fmt[1:]
+        val = getattr(insn, rest, None)
+        if val is None:
+            raise Exception("Could not find property " + fmt)
+        return "f" + str(val+offset)
     else:
-        # When we lift boolean instructions, we'll need to add support for "b"
+        # When we lift boolean instructions, we'll need to add support for "f"
         # registers, etc.
         raise Exception("Unimplemented reg name fmt: " + fmt)
 
@@ -117,6 +129,93 @@ def _lift_subx(x_bits, insn, addr, il):
                                         il.const(4, x_bits)),
                           il.reg(4, _reg_name(insn, "at")))))
     return insn.length
+
+#################################
+# Boolean option Chapter 4.3.10 #
+#################################
+def _lift_anyall(insn, addr, il, op):
+    s = _reg_name(insn, "bs")
+    s_reg = il.reg(1, "b" + str(_reg_name(insn, "bs")))
+    t_reg = il.reg(1, "b" + str(_reg_name(insn, "bt")))
+    offset = int(op[-1]) # get the size of the instruction (4 or 8)
+    
+    temp = s_reg
+    for idx in range(s+1, s+offset):
+        if op[:-1] == "ALL":
+            temp = il.and_expr(1, temp, il.reg(1, "b" + str(idx)))
+        elif op[:-1] == "ANY":
+            temp = il.or_expr(1, temp, il.reg(1, "b" + str(idx)))
+        else:
+            raise Exception("Wrong op used in _lift_anyall4. Can only use ANY4, ANY8, ALL4, ALL8, but op was " + op)
+
+    il.append(il.set_reg(2, t_reg, temp))
+    return insn.length
+
+def _lift_ALL4(insn, addr, il):
+    return _lift_anyall(insn, addr, il, "ALL4")
+def _lift_ALL8(insn, addr, il):
+    return _lift_anyall(insn, addr, il, "ALL8")
+def _lift_ANY4(insn, addr, il):
+    return _lift_anyall(insn, addr, il, "ANY4")
+def _lift_ANY8(insn, addr, il):
+    return _lift_anyall(insn, addr, il, "ANY8")
+
+# Helper function to implement binary operations of boolean registers
+def _lift_binop_B(insn, addr, il, op):
+    r = il.reg(1, "b" + str(_reg_name(insn, "br")))
+    t = il.reg(1, "b" + str(_reg_name(insn, "bt")))
+    s = il.reg(1, "b" + str(_reg_name(insn, "bs")))
+    
+    bit_t_neg = il.not_expr(1, t) # Negate bit if necessary
+    match op:
+        case "ANDB":    temp = il.and_expr(1, s, t)
+        case "ANDBC":   temp = il.and_expr(1, s, bit_t_neg)
+        case "ORB":     temp = il.or_expr(1,  s, t)
+        case "ORBC":    temp = il.or_expr(1,  s, bit_t_neg)
+        case "XORB":    temp = il.xor_expr(1, s, t)
+    il.append(il.set_reg(2, r, temp))
+    return insn.length
+
+def _lift_ANDB(insn, addr, il):
+    return _lift_binop_B(insn, addr, il, "ANDB")
+def _lift_ANDBC(insn, addr, il):
+    return _lift_binop_B(insn, addr, il, "ANDBC")
+def _lift_ORB(insn, addr, il):
+    return _lift_binop_B(insn, addr, il, "ORB")
+def _lift_ORBC(insn, addr, il):
+    return _lift_binop_B(insn, addr, il, "ORBC")
+def _lift_XORB(insn, addr, il):
+    return _lift_binop_B(insn, addr, il, "XORB")
+
+# Helper function for BF and BT, as only difference is the value of the condition
+def _lift_BFT(insn, addr, il, bit):
+    s = il.reg(1, "b" + str(_reg_name(insn, "bs")))
+    
+    cond = il.compare_equal(1, s, il.const(1, bit)) # 
+    true_label, false_label = LowLevelILLabel(), LowLevelILLabel()
+
+    il.append(il.if_expr(cond, true_label, false_label))
+    il.mark_label(true_label)
+    il.append(il.jump(il.const(4, insn.target_offset(addr))))
+    il.mark_label(false_label)
+    return insn.length
+
+def _lift_BF(insn, addr, il):
+    return _lift_BFT(insn, addr, il, 0)
+def _lift_BT(insn, addr, il):
+    return _lift_BFT(insn, addr, il, 1)
+
+# Helper function for MOVF and MOVT, as only difference is the value of the condition
+def _lift_MOVFT(insn, addr, il, bit):
+    t = _reg_name(insn, "bt")
+    t = il.reg(1, "b" + str(_reg_name(insn, "bt")))
+    cond = il.compare_equal(1,  t, il.const(1, bit))
+    return _lift_cmov(cond, insn, addr, il)
+
+def _lift_MOVF(insn, addr, il):
+    return _lift_MOVFT(insn, addr, il, 0)
+def _lift_MOVT(insn, addr, il):
+    return _lift_MOVFT(insn, addr, il, 1)
 
 
 # Floating-point Coprocessor Option
@@ -255,8 +354,6 @@ def _lift_ADDX4(insn, addr, il):
 def _lift_ADDX8(insn, addr, il):
     return _lift_addx(3, insn, addr, il)
 
-# TODO: def _lift_ALL4
-# TODO: def _lift_ALL8
 
 def _lift_AND(insn, addr, il):
     il.append(
@@ -341,8 +438,6 @@ def _lift_BEQZ(insn, addr, il):
     return _lift_cond(cond, insn, addr, il)
 
 _lift_BEQZ_N = _lift_BEQZ
-
-# TODO: def _lift_BF(insn, addr, il):
 
 def _lift_BGE(insn, addr, il):
     cond = il.compare_signed_greater_equal(4,
@@ -465,6 +560,9 @@ def _lift_CALLX0(insn, addr, il):
 
 # TODO: Call4-12, Callx4-12
 
+
+
+
 # Bellow this point, I have not checked the instructions myself - Nicu
 
 def _lift_RET(insn, addr, il):
@@ -472,6 +570,21 @@ def _lift_RET(insn, addr, il):
     il.append(il.ret(dest))
     return insn.length
 
+# Dummy lifting, only to check for dissassemble problems
+def _lift_CALL4(insn, addr, il):
+    return _lift_CALL0(insn,addr, il)
+
+def _lift_CALL8(insn, addr, il):
+    return _lift_CALL0(insn,addr, il)
+
+def _lift_CALL12(insn, addr, il):
+    return _lift_CALL0(insn,addr, il)
+
+def _lift_ENTRY(insn, addr, il):
+    return _lift_NOP(insn, addr, il)
+
+_lift_RETW = _lift_RET
+_lift_RETW_N = _lift_RET
 _lift_RET_N = _lift_RET
 
 def _lift_L32I_N(insn, addr, il):
@@ -499,21 +612,6 @@ def _lift_S32I_N(insn, addr, il):
     il.append(
         il.store(4, va, il.reg(4, "a" + str(insn.t))))
     return insn.length
-
-def _lift_MOVI_N(insn, addr, il):
-    il.append(
-        il.set_reg(4, _reg_name(insn, "as"),
-                   il.const(4, insn.inline0(addr))
-                   ))
-    return insn.length
-
-def _lift_MOV_N(insn, addr, il):
-    il.append(
-        il.set_reg(4, _reg_name(insn, "at"),
-                   il.reg(4, _reg_name(insn, "as"))
-                   ))
-    return insn.length
-
 
 def _lift_L8UI(insn, addr, il):
     va = il.add(4,
@@ -561,12 +659,6 @@ def _lift_J(insn, addr, il):
     il.append(il.jump(il.const(4, insn.target_offset(addr))))
     return insn.length
 
-# Coded twice
-# def _lift_CALLX0(insn, addr, il):
-#     il.append(
-#         il.call(il.reg(4, _reg_name(insn, "as"))))
-#     return insn.length
-
 def _lift_JX(insn, addr, il):
     il.append(il.jump(il.reg(4, _reg_name(insn, "as"))))
     return insn.length
@@ -581,6 +673,20 @@ def _lift_S8I(insn, addr, il):
 def _lift_MOVI(insn, addr, il):
     il.append(il.set_reg(4, _reg_name(insn, "at"),
                          il.const(4, insn.inline0(addr))))
+    return insn.length
+
+def _lift_MOVI_N(insn, addr, il):
+    il.append(
+        il.set_reg(4, _reg_name(insn, "as"),
+                   il.const(4, insn.inline0(addr))
+                   ))
+    return insn.length
+
+def _lift_MOV_N(insn, addr, il):
+    il.append(
+        il.set_reg(4, _reg_name(insn, "at"),
+                   il.reg(4, _reg_name(insn, "as"))
+                   ))
     return insn.length
 
 def _lift_EXTUI(insn, addr, il):
