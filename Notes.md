@@ -90,3 +90,13 @@ Dissassembly file:
 # Problems encountered:
  - MULL instruction gets assigned a different opcode by the xt-clang compiler. It's the length of 2 3-byte instrucitons: 25 70 fe f1 9f 58 (Assembbly mull a2, a8, a5 )
  - This happens to many floating point operations as well...
+ - standard is usually not followed -> How can we avoid/change this? --> to mention in report
+ - Problems with disassembling because instructions did not have lifting 
+
+TODO:
+Follow-up with Ryan
+
+lifting is hard --> Paragraph on why it is needed, what doesn't work etc.
+
+
+

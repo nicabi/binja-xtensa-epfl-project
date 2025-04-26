@@ -52,7 +52,7 @@ from binaryninja import (Architecture, BinaryViewType, CallingConvention,
 from binaryninja.enums import (BranchType, Endianness, FlagRole,
                                LowLevelILFlagCondition)
 
-from .instruction import Instruction
+from .instruction import Instruction, InstructionType
 from .disassembly import disassemble_instruction
 from .lifter import lift
 from .binaryview import ESPFirmware
@@ -147,8 +147,7 @@ class XtensaLE(Architecture):
             result.add_branch(BranchType.CallDestination,
                               insn.target_offset(addr))
         elif insn.mnem in ["CALLX0", "CALLX4", "CALLX8", "CALLX12"]:
-            pass
-            #result.add_branch(BranchType.IndirectBranch)
+            result.add_branch(BranchType.IndirectBranch)
 
         elif insn.mnem in ["SYSCALL"]:
             result.add_branch(BranchType.SystemCall)

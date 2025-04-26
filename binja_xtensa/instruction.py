@@ -478,10 +478,12 @@ class Instruction:
             name = "_decode_" + map[index]
         except IndexError:
             raise Exception(f"Unsupported index {index} in map {map}")
+        except:
+            print(f"[EXCEPTION] No configuration for bytes {insn_bytes.hex()} --> index {index} in map {map}")
 
         func = getattr(Instruction, name, None)
         if not func:
-            raise Exception(f"Unimplemented: {name}")
+            raise Exception(f"Unimplemented: {name} -  bytes: {insn_bytes.hex()}")
 
         return func(insn, insn_bytes)
 

@@ -492,4 +492,4 @@ _disassemble_SSX      = _dis("fr as at")
 _disassemble_SSXU     = _dis("fr as at")
 
 _disassemble_RFR      = _dis("ar fs")  
-_disassemble_WFR_     = _dis("fr as")  
+_disassemble_WFR      = _dis("fr as")  

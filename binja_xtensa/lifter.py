@@ -511,6 +511,21 @@ def _lift_RET(insn, addr, il):
     il.append(il.ret(dest))
     return insn.length
 
+# Dummy lifting, only to check for dissassemble problems
+def _lift_CALL4(insn, addr, il):
+    return _lift_CALL0(insn,addr, il)
+
+def _lift_CALL8(insn, addr, il):
+    return _lift_CALL0(insn,addr, il)
+
+def _lift_CALL12(insn, addr, il):
+    return _lift_CALL0(insn,addr, il)
+
+def _lift_ENTRY(insn, addr, il):
+    return _lift_NOP(insn, addr, il)
+
+_lift_RETW = _lift_RET
+_lift_RETW_N = _lift_RET
 _lift_RET_N = _lift_RET
 
 def _lift_L32I_N(insn, addr, il):
