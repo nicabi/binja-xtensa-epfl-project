@@ -92,7 +92,7 @@ def _lift_cond(cond, insn, addr, il):
         il.append(il.jump(il.const(4, addr + insn.length)))
     return insn.length
 
-def _lift_cmov(cond, insn, addr, il):
+def _lift_cmov(cond, insn, addr, il, float=False):
     """Helper for lifting conditional moves
     
     We pass in an IL condition (LowLevelILExpr) and this function lifts a move
@@ -103,8 +103,10 @@ def _lift_cmov(cond, insn, addr, il):
     false_label = LowLevelILLabel()
     il.append(il.if_expr(cond, true_label, false_label))
     il.mark_label(true_label)
-    il.append(il.set_reg(4, _reg_name(insn, "ar"),
-                         il.reg(4, _reg_name(insn, "as"))))
+    if float:
+        il.append(il.set_reg(4, _reg_name(insn, "fr"), il.reg(4, _reg_name(insn, "fs"))))
+    else:
+        il.append(il.set_reg(4, _reg_name(insn, "ar"), il.reg(4, _reg_name(insn, "as"))))
     il.mark_label(false_label)
     return insn.length
 
@@ -206,21 +208,19 @@ def _lift_BT(insn, addr, il):
     return _lift_BFT(insn, addr, il, 1)
 
 # Helper function for MOVF and MOVT, as only difference is the value of the condition
-def _lift_MOVFT(insn, addr, il, bit):
+def _lift_MOVFT(insn, addr, il, bit, float):
     t = _reg_name(insn, "bt")
     t = il.reg(1, "b" + str(_reg_name(insn, "bt")))
     cond = il.compare_equal(1,  t, il.const(1, bit))
-    return _lift_cmov(cond, insn, addr, il)
+    return _lift_cmov(cond, insn, addr, il, float)
+_lift_MOVF_S = lambda insn, addr, il: _lift_MOVFT(insn, addr, il, 0, False)
+_lift_MOVT_S = lambda insn, addr, il: _lift_MOVFT(insn, addr, il, 1, False)
 
-def _lift_MOVF(insn, addr, il):
-    return _lift_MOVFT(insn, addr, il, 0)
-def _lift_MOVT(insn, addr, il):
-    return _lift_MOVFT(insn, addr, il, 1)
+#####################################
+# Floating-point Coprocessor Option #
+#####################################
 
-
-# Floating-point Coprocessor Option
-# TODO: def _lift_ABS.S:
-# TODO: def _lift_ADD.S:
+# Binary/unary arithmetic operations
 
 def _lift_ABS_S(insn, addr, il):
     il.append(
@@ -236,61 +236,169 @@ def _lift_ADD_S(insn, addr, il):
                           il.reg(4, _reg_name(insn, "ft"))
                           )))
     return insn.length
-def _lift_CEIL_S(insn, addr, il): 
+def _lift_MSUB_S(insn, addr, il): 
     il.append(
         il.set_reg(4, _reg_name(insn, "fr"),
-            il.ceil(4,  # Note: No flag parameter
-                il.float_mult(4,    il.reg(4, _reg_name(insn, "as")),
-                                    il.float_const_single(4, 2**insn.t)))))
+            il.float_sub(4,
+                il.reg(4, _reg_name(insn, "fr")),
+                il.float_mult(4,    
+                    il.reg(4, _reg_name(insn, "fs")),
+                    il.reg(4, _reg_name(insn, "ft"))
+                ))))
     return insn.length
-
+def _lift_MUL_S(insn, addr, il): 
+    il.append(
+        il.set_reg(4, _reg_name(insn, "fr"),
+            il.float_mult(4,    
+                il.reg(4, _reg_name(insn, "fs")),
+                il.reg(4, _reg_name(insn, "ft"))
+            )))
+    return insn.length
+def _lift_NEG_S(insn, addr, il): 
+    il.append(
+        il.set_reg(4, _reg_name(insn, "fr"),
+            il.float_neg(4, il.reg(4, _reg_name(insn, "fs")))
+            ))
+    return insn.length
+def _lift_SUB_S(insn, addr, il): 
+    il.append(
+        il.set_reg(4, _reg_name(insn, "fr"),
+            il.float_sub(4,    
+                il.reg(4, _reg_name(insn, "fs")),
+                il.reg(4, _reg_name(insn, "ft"))
+            )))
+    return insn.length
+def _lift_MADD_S(insn, addr, il): 
+    il.append(
+        il.set_reg(4, _reg_name(insn, "fr"),
+            il.float_add(4,
+                il.reg(4, _reg_name(insn, "fr")),
+                il.float_mult(4,    
+                    il.reg(4, _reg_name(insn, "fs")),
+                    il.reg(4, _reg_name(insn, "ft"))
+                ))))
+    return insn.length
+    
+# Float to Int Rounding functions
+def _lift_CEIL_S(insn, addr, il): 
+    il.append(
+        il.set_reg(4, _reg_name(insn, "ar"),
+            il.ceil(4,  # Note: No flag parameter
+                il.float_mult(4,    il.reg(4, _reg_name(insn, "fs")),
+                                    il.float_const_single(2**insn.t)))))
+    return insn.length
 def _lift_FLOAT_S(insn, addr, il): 
     il.append(
         il.set_reg(4, _reg_name(insn, "fr"),
-            il.float_mult(4,    il.int_to_float(4, _reg_name(insn, "as")),
-                                il.float_const_single(4, 2.0**(-insn.t)))))
+            il.float_mult(4,    il.int_to_float(4, il.reg(4, _reg_name(insn, "as"))),
+                                il.float_const_single(2.0**(-insn.t)))))
     return insn.length
+_lift_UFLOAT_S = _lift_FLOAT_S
 def _lift_FLOOR_S(insn, addr, il): 
     il.append(
-        il.set_reg(4, _reg_name(insn, "fr"),
-            il.floor(4,  # Note: No flag parameter
-                il.float_mult(4,    il.reg(4, _reg_name(insn, "as")),
-                                    il.float_const_single(4, 2**insn.t)))))
+        il.set_reg(4, _reg_name(insn, "ar"),
+            il.floor(4,         # Note: No flag parameter
+                il.float_mult(4,    il.reg(4, _reg_name(insn, "fs")),
+                                    il.float_const_single(2.0**insn.t)))))
     return insn.length
-    
-# TODO: def _lift_LSI:
-# TODO: def _lift_LSIU:
-# TODO: def _lift_LSX:
-# TODO: def _lift_LSXU:
-# TODO: def _lift_MADD_S:
-# TODO: def _lift_MOV_S:
-# TODO: def _lift_MOVEQZ_S:
-# TODO: def _lift_MOVF_S:
-# TODO: def _lift_MOVGEZ_S:
-# TODO: def _lift_MOVLTZ_S:
-# TODO: def _lift_MOVNEZ_S:
-# TODO: def _lift_MOVT_S:
-# TODO: def _lift_MSUB_S:
-# TODO: def _lift_MUL_S:
-# TODO: def _lift_NEG_S:
-# TODO: def _lift_OEQ_S:
-# TODO: def _lift_OLE_S:
-# TODO: def _lift_OLT_S:
-# TODO: def _lift_RFR:
-# TODO: def _lift_ROUND_S:
-# TODO: def _lift_SSI:
-# TODO: def _lift_SSIU:
-# TODO: def _lift_SSX:
-# TODO: def _lift_SSXU:
-# TODO: def _lift_SUB_S:
-# TODO: def _lift_TRUNC_S:
-# TODO: def _lift_UEQ_S:
-# TODO: def _lift_UFLOAT_S:
-# TODO: def _lift_ULE_S:
-# TODO: def _lift_ULT_S:
-# TODO: def _lift_UN_S:
-# TODO: def _lift_UTRUNC_S:
-# TODO: def _lift_WFR R:
+def _lift_TRUNC_S(insn, addr, il): 
+    il.append(
+        il.set_reg(4, _reg_name(insn, "ar"),
+            il.float_trunc(4,   # Note: No flag parameter
+                il.float_mult(4,    il.reg(4, _reg_name(insn, "fs")),
+                                    il.float_const_single(2**insn.t)))))
+    return insn.length
+_lift_UTRUNC_S = _lift_TRUNC_S
+def _lift_ROUND_S(insn, addr, il): 
+    il.append(
+        il.set_reg(4, _reg_name(insn, "ar"),
+            il.round_to_int(4,   # Note: No flag parameter
+                il.float_mult(4,    il.reg(4, _reg_name(insn, "fs")),
+                                    il.float_const_single(2**insn.t)))))
+    return insn.length
+
+# Move operations
+def _lift_MOV_COND_S(insn, addr, il, comp):
+    cond = comp(4, il.reg(4, _reg_name(insn, "at")), il.const(4, 0))
+    return _lift_cmov(cond, insn, addr, il, True)
+_lift_MOVEQZ_S = lambda insn, addr, il: _lift_MOV_COND_S(insn, addr, il, il.compare_equal)
+_lift_MOVNEZ_S = lambda insn, addr, il: _lift_MOV_COND_S(insn, addr, il, il.compare_not_equal)
+_lift_MOVGEZ_S = lambda insn, addr, il: _lift_MOV_COND_S(insn, addr, il, il.compare_signed_greater_equal)
+_lift_MOVLTZ_S = lambda insn, addr, il: _lift_MOV_COND_S(insn, addr, il, il.compare_signed_less_than)
+_lift_MOVF_S = lambda insn, addr, il: _lift_MOVFT(insn, addr, il, 0, True)
+_lift_MOVT_S = lambda insn, addr, il: _lift_MOVFT(insn, addr, il, 1, True)
+def _lift_MOV_S(insn, addr, il):
+    il.append(il.set_reg(4, _reg_name(insn, "fr"), il.reg(4, _reg_name(insn, "fs"))))
+    return insn.length
+def _lift_RFR(insn, addr, il):
+    il.append(il.set_reg(4, _reg_name(insn, "ar"), il.reg(4, _reg_name(insn, "fs"))))
+    return insn.length
+def _lift_WFR(insn, addr, il):
+    il.append(il.set_reg(4, _reg_name(insn, "fr"), il.reg(4, _reg_name(insn, "as"))))
+    return insn.length
+
+# Float Compare operations
+def _lift_float_compares(insn, addr, il, order, cond, merge):
+    cond1 = order(4,il.reg(4, _reg_name(insn, "fs")), il.reg(4, _reg_name(insn, "ft")))
+    cond2 = cond(4,il.reg(4, _reg_name(insn, "fs")), il.reg(4, _reg_name(insn, "ft")))
+    il.append(il.set_reg(4, _reg_name(insn, "br"), merge(4, cond1, cond2)))
+    return insn.length
+def _lift_OEQ_S(insn, addr, il): 
+    return _lift_float_compares(insn, addr, il, il.float_compare_ordered, il.float_compare_equal, il.and_expr)
+def _lift_OLE_S(insn, addr, il): 
+    return _lift_float_compares(insn, addr, il, il.float_compare_ordered, il.float_compare_less_equal, il.and_expr)
+def _lift_OLT_S(insn, addr, il):
+    return _lift_float_compares(insn, addr, il, il.float_compare_ordered, il.float_compare_less_than, il.and_expr)
+def _lift_UEQ_S(insn, addr, il):
+    return _lift_float_compares(insn, addr, il, il.float_compare_unordered, il.float_compare_equal, il.or_expr)
+def _lift_ULE_S(insn, addr, il):
+    return _lift_float_compares(insn, addr, il, il.float_compare_unordered, il.float_compare_less_equal, il.or_expr)
+def _lift_ULT_S(insn, addr, il):
+    return _lift_float_compares(insn, addr, il, il.float_compare_unordered, il.float_compare_less_than, il.or_expr)
+def _lift_UN_S(insn, addr, il):
+    cond1 = il. float_compare_unordered(4,il.reg(4, _reg_name(insn, "fs")), il.reg(4, _reg_name(insn, "ft")))
+    il.append(il.set_reg(4, _reg_name(insn, "br"), cond1))
+    return insn.length
+
+# Float Loads and stores
+def _lift_LSIU(insn, addr, il, update=True):
+    va = il.add(4, il.reg(4, _reg_name(insn, "as")),
+                   il.const(4, insn.inline0(addr)))
+    il.append(il.set_reg(4, _reg_name(insn, "ft"), il.load(4, va)))
+    if update:
+        il.append(il.set_reg(4, _reg_name(insn, "as"), va))
+    return insn.length
+def _lift_LSXU(insn, addr, il, update=True):
+    va = il.add(4, il.reg(4, _reg_name(insn, "as")), il.reg(4, _reg_name(insn, "at")))
+    il.append(il.set_reg(4, _reg_name(insn, "fr"), il.load(4, va)))
+    if update:
+        il.append(il.set_reg(4, _reg_name(insn, "as"), va))
+    return insn.length
+
+
+def _lift_SSIU(insn, addr, il, update=True):
+    va = il.add(4, il.reg(4, _reg_name(insn, "as")),
+                   il.const(4, insn.inline0(addr)))
+    il.append(il.store(4, va, il.reg(4, _reg_name(insn, "ft"))))
+    if update:
+        il.append(il.set_reg(4, _reg_name(insn, "as"), va))
+    return insn.length
+def _lift_SSXU(insn, addr, il, update=True):
+    va = il.add(4, il.reg(4, _reg_name(insn, "as")), il.reg(4, _reg_name(insn, "at")))
+    il.append(il.store(4, va, il.reg(4, _reg_name(insn, "fr"))))
+    if update:
+        il.append(il.set_reg(4, _reg_name(insn, "as"), va))
+    return insn.length
+
+def _lift_LSI(insn, addr, il):
+    return _lift_LSIU(insn, addr, il, False)
+def _lift_LSX(insn, addr, il):
+    return _lift_LSXU(insn, addr, il, False)
+def _lift_SSI(insn, addr, il):
+    return _lift_SSIU(insn, addr, il, False)
+def _lift_SSX(insn, addr, il):
+    return _lift_SSXU(insn, addr, il, False)
+
 
 # From here on down, I lifted instructions in priority order of how much
 # analysis it would get me. So I started with branches and common math and
@@ -345,6 +453,7 @@ def _lift_ADDMI(insn, addr, il):
                    il.add(4,
                           il.reg(4, _reg_name(insn, "as")),
                           il.const(4, constant))))
+    return insn.length
 def _lift_ADDX2(insn, addr, il):
     return _lift_addx(1, insn, addr, il)
 
@@ -914,6 +1023,7 @@ def _lift_ILL(insn, addr, il):
     # TODO: pick a proper trap constant
     il.append(il.trap(0))
     return insn.length
+_lift_ILL_N = _lift_ILL
 
 def _lift_MUL16S(insn, addr, il):
     il.append(

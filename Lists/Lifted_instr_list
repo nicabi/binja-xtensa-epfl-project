@@ -1,11 +1,48 @@
 # New, Floating-Point operations
-ABS     - test, float?
-ABS_S   - test, float
-ADD.S   - test, float
-CEIL.S   - test, float
-FLOAT.S   - test, float
-FLOOR.S   - test, float
+# TODO - Test
+ABS_S
+NEG_S
+ADD_S
+SUB_S
+MADD_S
+MSUB_S
+MUL_S
 
+# TODO - Test
+CEIL_S
+FLOAT_S
+UFLOAT_S
+FLOOR_S
+TRUNC_S
+UTRUNC_S
+ROUND_S
+
+# TODO - Test
+MOV_S
+MOVNEZ_S
+MOVEQZ_S
+MOVGEZ_S
+MOVLTZ_S
+MOVT_S
+MOVF_S
+RFR
+WFR
+
+OEQ_S
+OLE_S
+OLT_S
+UEQ_S
+ULT_S
+ULE_S
+UN_S
+LSI
+LSIU
+LSX
+LSXU
+SSI
+SSIU
+SSX
+SSXU
 
 # New, Boolean operations
 ANDB  - test

@@ -1025,10 +1025,10 @@ class Instruction:
         # format RRI8 (t, s, imm8 vary)
         return cls._do_tbl_layer(insn, insn_bytes, "r", cls._lsci_map)
 
-    _decode_LSI = mnem("LSI", "RRI8")
-    _decode_SSI = mnem("SSI", "RRI8")
-    _decode_LSIU = mnem("LSIU", "RRI8")
-    _decode_SSIU = mnem("SSIU", "RRI8")
+    _decode_LSI = mnem("LSI", "RRI8",   inline0=lambda insn, _: insn.imm8 << 2)
+    _decode_SSI = mnem("SSI", "RRI8",   inline0=lambda insn, _: insn.imm8 << 2)
+    _decode_LSIU = mnem("LSIU", "RRI8", inline0=lambda insn, _: insn.imm8 << 2)
+    _decode_SSIU = mnem("SSIU", "RRI8", inline0=lambda insn, _: insn.imm8 << 2)
 
     _mac16_map = [
         "MACID", "MACCD", "MACDD", "MACAD",
