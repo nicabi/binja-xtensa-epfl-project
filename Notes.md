@@ -93,6 +93,10 @@ Dissassembly file:
  - standard is usually not followed -> How can we avoid/change this? --> to mention in report
  - Problems with disassembling because instructions did not have lifting 
 
+Questions:
+ - Float vs UFloat --> Conversion from signed or unsigned to float doesn't really matter, right?
+
+
 TODO:
 Follow-up with Ryan
 

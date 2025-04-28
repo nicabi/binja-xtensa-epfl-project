@@ -1056,3 +1056,24 @@ def _lift_NOP(insn, addr, il):
     return insn.length
 
 _lift_NOP_N = _lift_NOP
+
+
+def _lift_RSR(insn, addr, il):
+    sr = insn._special_reg_map[insn.sr]
+    print(sr)
+    il.append( il.set_reg(4, _reg_name(insn, "at"),  il.reg(4, sr[0].lower())))
+
+    return insn.length
+
+def _lift_WSR(insn, addr, il):
+    sr = insn._special_reg_map[insn.sr]
+    print(sr)
+    il.append( il.set_reg(4, sr[0].lower(),  il.reg(4, _reg_name(insn, "at"))))
+    return insn.length
+
+def _lift_XSR(insn, addr, il):
+    sr = insn._special_reg_map[insn.sr]
+    il.append( il.set_reg(4, il.LLIL_TEMP(0), sr[0].lower()))
+    il.append( il.set_reg(4, sr[0].lower(),  il.reg(4, _reg_name(insn, "at"))))
+    il.append( il.set_reg(4,  il.reg(4, _reg_name(insn, "at")), il.LLIL_TEMP(0)))
+    return insn.length

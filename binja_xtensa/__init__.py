@@ -94,8 +94,8 @@ class XtensaLE(Architecture):
         'fcr': RegisterInfo("fcr", 4, 0), # Floating-point control register
         'fsr': RegisterInfo("fsr", 4, 0), # Floating-point status register
         'sar': RegisterInfo("sar", 1, 0), # Shift Address Register: Not a GPR
-        'callinc': RegisterInfo("callinc", 1, 0), # Call Increment: Not a GPR
     }
+    # PS 4.4.1.3 The Miscellaneous Program State Register (PS) under the Exception Option
     # Floating-point registers Chapter 4.3.11
     for i in range(16):
         regs[f"f{i}"] = RegisterInfo(f"f{i}", 4, 0)
@@ -103,6 +103,9 @@ class XtensaLE(Architecture):
     # Theoretically 16 1-bit register, represented as 1 16-bit register, but makes decompilation unclear    
     for i in range(16):
         regs[f"b{i}"] = RegisterInfo(f"b{i}", 1, 0)
+
+    for k,val in Instruction._special_reg_map.items():
+        regs[val[0].lower()] = RegisterInfo(val[0].lower(), val[1], 0)
 
     # Do we have flags?
     flags = {}
