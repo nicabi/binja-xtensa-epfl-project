@@ -241,16 +241,6 @@ def _lift_ADD_S(insn, addr, il):
                           il.reg(4, _reg_name(insn, "ft"))
                           )))
     return insn.length
-def _lift_MSUB_S(insn, addr, il): 
-    il.append(
-        il.set_reg(4, _reg_name(insn, "fr"),
-            il.float_sub(4,
-                il.reg(4, _reg_name(insn, "fr")),
-                il.float_mult(4,    
-                    il.reg(4, _reg_name(insn, "fs")),
-                    il.reg(4, _reg_name(insn, "ft"))
-                ))))
-    return insn.length
 def _lift_MUL_S(insn, addr, il): 
     il.append(
         il.set_reg(4, _reg_name(insn, "fr"),
@@ -277,6 +267,16 @@ def _lift_MADD_S(insn, addr, il):
     il.append(
         il.set_reg(4, _reg_name(insn, "fr"),
             il.float_add(4,
+                il.reg(4, _reg_name(insn, "fr")),
+                il.float_mult(4,    
+                    il.reg(4, _reg_name(insn, "fs")),
+                    il.reg(4, _reg_name(insn, "ft"))
+                ))))
+    return insn.length
+def _lift_MSUB_S(insn, addr, il): 
+    il.append(
+        il.set_reg(4, _reg_name(insn, "fr"),
+            il.float_sub(4,
                 il.reg(4, _reg_name(insn, "fr")),
                 il.float_mult(4,    
                     il.reg(4, _reg_name(insn, "fs")),
@@ -1074,7 +1074,6 @@ def _lift_MUL16U(insn, addr, il):
 
 
 def _lift_RSR(insn, addr, il):
-    print("RSR", hex(addr))
     sr = insn._special_reg_map.get(insn.sr)
     if not sr:
         il.append(il.unimplemented())
@@ -1084,7 +1083,6 @@ def _lift_RSR(insn, addr, il):
     return insn.length
 
 def _lift_WSR(insn, addr, il):
-    print("WSR", hex(addr))
     sr = insn._special_reg_map.get(insn.sr)
     if not sr:
         il.append(il.unimplemented())
@@ -1093,7 +1091,6 @@ def _lift_WSR(insn, addr, il):
     return insn.length
 
 def _lift_XSR(insn, addr, il):
-    print("XSR", hex(addr))
     sr = insn._special_reg_map.get(insn.sr)
     if not sr:
         il.append(il.unimplemented())
