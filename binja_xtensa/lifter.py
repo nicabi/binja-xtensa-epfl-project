@@ -4,7 +4,7 @@ Xtensa lifting to BNIL
 Here we provide a `lift` function that takes a decoded instruction and an
 address where that instruction is, and we return BNIL.
 """
-from binaryninja import Architecture, LowLevelILLabel
+from binaryninja import Architecture, LowLevelILLabel, LLIL_TEMP
 
 from .instruction import sign_extend
 
@@ -131,6 +131,11 @@ def _lift_subx(x_bits, insn, addr, il):
                                         il.const(4, x_bits)),
                           il.reg(4, _reg_name(insn, "at")))))
     return insn.length
+
+def _lift_NOP(insn, addr, il):
+    il.append(il.nop())
+    return insn.length
+_lift_NOP_N = _lift_NOP
 
 #################################
 # Boolean option Chapter 4.3.10 #
@@ -667,9 +672,34 @@ def _lift_CALLX0(insn, addr, il):
         il.call(dest))
     return insn.length
 
-# TODO: Call4-12, Callx4-12
+
+def _lift_CALLXn(insn, addr, il, n):
+    dest = il.reg(4, _reg_name(insn, "as"))
+    for i in range(n): il.append(il.set_reg(4, LLIL_TEMP(addr+i), il.reg(4, 'a' + str(i))))
+    for i in range(16-n): il.append(il.set_reg(4, 'a' + str(i), il.reg(4, 'a' + str(i+n))))
+    il.append(il.call(dest))
+    for i in range(16-n): il.append(il.set_reg(4, 'a' + str(i+n), il.reg(4, 'a' + str(i))))
+    for i in range(n): il.append(il.set_reg(4, 'a' + str(i), il.reg(4, LLIL_TEMP(addr+i))))
 
 
+    return insn.length
+_lift_CALLX4  = lambda insn, addr,il: _lift_CALLXn(insn, addr, il, 4)
+_lift_CALLX8  = lambda insn, addr,il: _lift_CALLXn(insn, addr, il, 8)
+_lift_CALLX12 = lambda insn, addr,il: _lift_CALLXn(insn, addr, il, 12)
+
+
+def _lift_CALLn(insn, addr, il, n):
+    dest = il.const(4, insn.target_offset(addr))
+    for i in range(n): il.append(il.set_reg(4, LLIL_TEMP(addr+i), il.reg(4, 'a' + str(i))))
+    for i in range(16-n): il.append(il.set_reg(4, 'a' + str(i), il.reg(4, 'a' + str(i+n))))
+    il.append(il.call(dest))
+    for i in range(16-n): il.append(il.set_reg(4, 'a' + str(i+n), il.reg(4, 'a' + str(i))))
+    for i in range(n): il.append(il.set_reg(4, 'a' + str(i), il.reg(4, LLIL_TEMP(addr+i))))
+
+    return insn.length
+_lift_CALL4  = lambda insn, addr,il: _lift_CALLn(insn, addr, il, 4)
+_lift_CALL8  = lambda insn, addr,il: _lift_CALLn(insn, addr, il, 8)
+_lift_CALL12 = lambda insn, addr,il: _lift_CALLn(insn, addr, il, 12)
 
 
 # Bellow this point, I have not checked the instructions myself - Nicu
@@ -681,22 +711,9 @@ def _lift_RET(insn, addr, il):
 _lift_RET_N = _lift_RET
 
 # Dummy lifting to allow the lifter and disassemble to find the right building blocks.
-def _lift_CALL4(insn, addr, il):
-    return _lift_CALL0(insn,addr, il)
-
-def _lift_CALL8(insn, addr, il):
-    return _lift_CALL0(insn,addr, il)
-
-def _lift_CALL12(insn, addr, il):
-    return _lift_CALL0(insn,addr, il)
-
-def _lift_ENTRY(insn, addr, il):
-    return _lift_NOP(insn, addr, il)
-_lift_CALLX4 = _lift_CALLX0 
-_lift_CALLX8 = _lift_CALLX0 
-_lift_CALLX12 = _lift_CALLX0 
 _lift_RETW = _lift_RET
 _lift_RETW_N = _lift_RET
+_lift_ENTRY = _lift_NOP
 
 
 def _lift_L32I_N(insn, addr, il):
@@ -1054,29 +1071,34 @@ def _lift_MUL16U(insn, addr, il):
                            )))
     return insn.length
 
-def _lift_NOP(insn, addr, il):
-    il.append(il.nop())
-    return insn.length
-
-_lift_NOP_N = _lift_NOP
 
 
 def _lift_RSR(insn, addr, il):
-    sr = insn._special_reg_map[insn.sr]
-    print(sr)
-    il.append( il.set_reg(4, _reg_name(insn, "at"),  il.reg(4, sr[0].lower())))
+    print("RSR", hex(addr))
+    sr = insn._special_reg_map.get(insn.sr)
+    if not sr:
+        il.append(il.unimplemented())
+    else:
+        il.append( il.set_reg(4, _reg_name(insn, "at"),  il.reg(4, sr[0].lower())))
 
     return insn.length
 
 def _lift_WSR(insn, addr, il):
-    sr = insn._special_reg_map[insn.sr]
-    print(sr)
-    il.append( il.set_reg(4, sr[0].lower(),  il.reg(4, _reg_name(insn, "at"))))
+    print("WSR", hex(addr))
+    sr = insn._special_reg_map.get(insn.sr)
+    if not sr:
+        il.append(il.unimplemented())
+    else:
+        il.append( il.set_reg(4, sr[0].lower(),  il.reg(4, _reg_name(insn, "at"))))
     return insn.length
 
 def _lift_XSR(insn, addr, il):
-    sr = insn._special_reg_map[insn.sr]
-    il.append( il.set_reg(4, il.LLIL_TEMP(0), sr[0].lower()))
-    il.append( il.set_reg(4, sr[0].lower(),  il.reg(4, _reg_name(insn, "at"))))
-    il.append( il.set_reg(4,  il.reg(4, _reg_name(insn, "at")), il.LLIL_TEMP(0)))
+    print("XSR", hex(addr))
+    sr = insn._special_reg_map.get(insn.sr)
+    if not sr:
+        il.append(il.unimplemented())
+    else:
+        il.append( il.set_reg(4, LLIL_TEMP(0), sr[0].lower()))
+        il.append( il.set_reg(4, sr[0].lower(),  il.reg(4, _reg_name(insn, "at"))))
+        il.append( il.set_reg(4,  il.reg(4, _reg_name(insn, "at")), LLIL_TEMP(0)))
     return insn.length

@@ -145,13 +145,11 @@ class XtensaLE(Architecture):
                               insn.target_offset(addr))
         elif insn.mnem in ["JX"]:
             result.add_branch(BranchType.IndirectBranch)
-
         elif insn.mnem in ["CALL0", "CALL4", "CALL8", "CALL12"]:
             result.add_branch(BranchType.CallDestination,
                               insn.target_offset(addr))
         elif insn.mnem in ["CALLX0", "CALLX4", "CALLX8", "CALLX12"]:
-            result.add_branch(BranchType.IndirectBranch)
-
+            result.add_branch(BranchType.CallDestination)
         elif insn.mnem in ["SYSCALL"]:
             result.add_branch(BranchType.SystemCall)
 
