@@ -678,8 +678,9 @@ def _lift_RET(insn, addr, il):
     dest = il.reg(4, 'a0')
     il.append(il.ret(dest))
     return insn.length
+_lift_RET_N = _lift_RET
 
-# Dummy lifting, only to check for dissassemble problems
+# Dummy lifting to allow the lifter and disassemble to find the right building blocks.
 def _lift_CALL4(insn, addr, il):
     return _lift_CALL0(insn,addr, il)
 
@@ -691,10 +692,12 @@ def _lift_CALL12(insn, addr, il):
 
 def _lift_ENTRY(insn, addr, il):
     return _lift_NOP(insn, addr, il)
-
+_lift_CALLX4 = _lift_CALLX0 
+_lift_CALLX8 = _lift_CALLX0 
+_lift_CALLX12 = _lift_CALLX0 
 _lift_RETW = _lift_RET
 _lift_RETW_N = _lift_RET
-_lift_RET_N = _lift_RET
+
 
 def _lift_L32I_N(insn, addr, il):
     _as = il.reg(4, _reg_name(insn, "as"))
