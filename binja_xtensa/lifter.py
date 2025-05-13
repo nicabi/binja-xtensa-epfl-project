@@ -715,6 +715,164 @@ _lift_RETW_N = _lift_RET
 _lift_ENTRY = _lift_NOP
 
 
+#########################################################
+#### Miscellaneous Operations Option (Section 4.3.8) ####
+#########################################################
+
+def _lift_minmax(cond_func, left, right, insn, addr, il):
+    """Helper for lifting min/max  operations 
+    
+    We pass in an IL condition (LowLevelILExpr), the right condition for min/max and
+    the left and right operands. This will then lift the instruction using an if statement
+    to branch based on the left and right values. left and right are both ExpressionIndex.
+    Functions to use, where one needs to also pay attention to the signed/unnsigned version
+    MAX -> greater_equal/greater 
+    MIN -> lesser_equal/lesser
+    """
+    true_label = LowLevelILLabel()
+    false_label = LowLevelILLabel()
+    cond = cond_func(4, left, right)
+    il.append(il.if_expr(cond, true_label, false_label))
+    
+    il.mark_label(true_label)
+    il.append(il.set_reg(4, _reg_name(insn, "ar"), left))
+    
+    il.mark_label(false_label)
+    il.append(il.set_reg(4, _reg_name(insn, "ar"), right))
+    return insn.length
+
+def _lift_MAX(insn, addr, il):
+    return _lift_minmax(il.compare_signed_greater_equal,  il.reg(4, _reg_name(insn, "as")), il.reg(4, _reg_name(insn, "at")), insn, addr, il)
+def _lift_MAXU(insn, addr, il):
+    return _lift_minmax(il.compare_unsigned_greater_equal,il.reg(4, _reg_name(insn, "as")), il.reg(4, _reg_name(insn, "at")), insn, addr, il)
+def _lift_MIN(insn, addr, il):
+    return _lift_minmax(il.compare_signed_less_equal,   il.reg(4, _reg_name(insn, "as")), il.reg(4, _reg_name(insn, "at")), insn, addr, il)
+def _lift_MINU(insn, addr, il):
+    return _lift_minmax(il.compare_unsigned_less_equal, il.reg(4, _reg_name(insn, "as")), il.reg(4, _reg_name(insn, "at")), insn, addr, il)
+
+# Needs to compute 
+# y ← min(max(x, − (2**imm)), 2imm−1)
+def _lift_CLAMPS(insn, addr, il):
+    x = il.reg(4, _reg_name(insn, "as")) 
+    ar_reg = il.reg(4, _reg_name(insn, "ar")) 
+    imm1 = il.const(4, - 2**(insn.t + 7))
+    imm2 = il.const(4, 2**(insn.t + 7) - 1)
+    _lift_minmax(il.compare_signed_greater_equal, x, imm1, insn, addr, il)
+    _lift_minmax(il.compare_signed_less_equal, ar_reg, imm2, insn, addr, il)
+    return insn.length
+# def _lift_NSA(insn, addr, il):
+# def _lift_NSAU(insn, addr, il):
+# def _lift_SEXT(insn, addr, il):
+
+
+
+
+##############################################
+################ LOOP MODULE #################
+##############################################
+
+# def _lift_LOOPGTZ(insn, addr, il):
+
+#     # Set constant we need for the function
+#     cnt = il.reg(4, _reg_name(insn, "as")) 
+#     end_addr = addr + 4 + insn.imm8
+#     begin = LowLevelILLabel()
+
+#     il.add_label_for_address(Architecture['xtensa'], end_addr)
+#     end = il.get_label_for_address(Architecture['xtensa'], end_addr)
+#     # TODO: Check condition for loop if as == 0
+
+#     # Set registers
+#     il.append(il.set_reg(4, "lcount", cnt))
+#     il.append(il.set_reg(4, "lbeg", il.const(4, addr + 3)))
+#     il.append(il.set_reg(4, "lend", il.const(4, end_addr)))
+#     # Begin for loop
+#     il.mark_label(begin)
+#     il.append( il.set_reg(4, "lcount", il.add(4, il.reg(4, "lcount"), il.const(4, -1))))
+
+#     # Jump to end and configure end loop
+#     il.set_current_address(end_addr)
+#     cond = il.compare_equal(4, il.reg(4, "lcount"), il.const(4, 0))
+#     il.append( il.if_expr(cond, end, begin))
+#     # If loop is finished, branch
+#     # il.set_current_address(addr)
+#     return insn.length
+
+def _lift_LOOP(insn, addr, il):
+    # Set constant we need for the function
+    cnt = il.reg(4, _reg_name(insn, "as")) 
+    end_addr = addr + 4 + insn.imm8
+    false_label = LowLevelILLabel()
+    begin_label = LowLevelILLabel()
+    end_label = LowLevelILLabel()
+
+    # Set registers
+    il.append(il.set_reg(4, "lcount", cnt))
+    il.append(il.set_reg(4, "lbeg", il.const(4, addr + 3)))
+    il.append(il.set_reg(4, "lend", il.const(4, end_addr)))
+
+    # Begin for loop
+    # Check if loop if finished or not
+    il.mark_label(begin_label)
+    cond = il.compare_equal(4, il.reg(4, "lcount"), il.const(4, 0))
+    il.append( il.if_expr(cond, end_label, false_label))
+
+    # If false, we do keep going and decrease the counter
+    il.mark_label(false_label)
+    il.append( il.set_reg(4, "lcount", il.add(4, il.reg(4, "lcount"), il.const(4, -1))))
+    # If true, we already jumped at the ened.
+
+
+    # Jump to end and configure end loop
+    il.set_current_address(end_addr)
+    il.append(il.goto(begin_label))
+    il.mark_label(end_label)
+
+    # If loop is finished, branch
+    il.set_current_address(addr)
+    return insn.length
+
+
+# def _lift_LOOP(insn, addr, il):
+#     # Set constant we need for the function
+#     cnt = il.reg(4, _reg_name(insn, "as")) 
+#     end_addr = addr + 4 + insn.imm8
+#     true_label = LowLevelILLabel()
+#     false_label = LowLevelILLabel()
+
+#     # Set registers
+#     il.append(il.set_reg(4, "lcount", cnt))
+#     il.append(il.set_reg(4, "lbeg", il.const(4, addr + 3)))
+#     il.append(il.set_reg(4, "lend", il.const(4, end_addr)))
+
+#     # Begin for loop
+#     il.append( il.set_reg(4, "lcount", il.add(4, il.reg(4, "lcount"), il.const(4, -1))))
+
+
+#     # Jump to end and configure end loop
+#     il.set_current_address(end_addr)
+
+#     # Check if loop if finished or not
+#     cond = il.compare_equal(4, il.reg(4, "lcount"), il.const(4, 0))
+#     il.append( il.if_expr(cond, true_label, false_label))
+
+#     # If false, we do keep going and decrease the counter
+#     il.mark_label(false_label)
+#     # Always jump to beginning of loop. 
+#     il.append(il.jump(il.reg(4, "lbeg")))
+#     # If true, loop ends, and we do nothing
+#     il.mark_label(true_label)
+
+#     # If loop is finished, branch
+#     il.set_current_address(addr)
+#     return insn.length
+
+_lift_LOOPNEZ = _lift_LOOP
+_lift_LOOPGTZ = _lift_LOOP
+
+# def _lift_LOOPNEZ(insn, addr, il):
+# def _lift_LOOPGTZ(insn, addr, il):
+
 # Bellow this point, I have not checked the instructions myself - Nicu
 
 def _lift_L32I_N(insn, addr, il):
