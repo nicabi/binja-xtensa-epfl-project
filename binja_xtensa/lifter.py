@@ -714,6 +714,39 @@ _lift_RETW = _lift_RET
 _lift_RETW_N = _lift_RET
 _lift_ENTRY = _lift_NOP
 
+###############################################
+######### 32-bit Integer Divide Option ########
+###############################################
+
+def _lift_REMU(insn, addr, il):
+    il.append(il.set_reg(4, _reg_name(insn, "ar"),
+        il.mod_unsigned(4,
+                il.reg(4, _reg_name(insn, "as")),
+                il.reg(4, _reg_name(insn, "at")))))
+
+    return insn.length
+def _lift_REMS(insn, addr, il):
+    il.append(il.set_reg(4, _reg_name(insn, "ar"),
+        il.mod_signed(4,
+                il.reg(4, _reg_name(insn, "as")),
+                il.reg(4, _reg_name(insn, "at")))))
+    return insn.length
+
+def _lift_QUOU(insn, addr, il):
+    il.append(il.set_reg(4, _reg_name(insn, "ar"),
+        il.div_unsigned(4,
+                il.reg(4, _reg_name(insn, "as")),
+                il.reg(4, _reg_name(insn, "at")))))
+
+    return insn.length
+def _lift_QUOS(insn, addr, il):
+    il.append(il.set_reg(4, _reg_name(insn, "ar"),
+        il.div_signed(4,
+                il.reg(4, _reg_name(insn, "as")),
+                il.reg(4, _reg_name(insn, "at")))))
+    return insn.length
+
+
 
 # Bellow this point, I have not checked the instructions myself - Nicu
 
@@ -1035,9 +1068,16 @@ def _lift_SRA(insn, addr, il):
     return insn.length
 
 def _lift_ISYNC(insn, addr, il):
-    il.append(
-        il.intrinsic([], "isync", [])
-    )
+    il.append(il.intrinsic([], "isync", []))
+    return insn.length
+def _lift_DSYNC(insn, addr, il):
+    il.append(il.intrinsic([], "dsync", []))
+    return insn.length
+def _lift_RSYNC(insn, addr, il):
+    il.append(il.intrinsic([], "rsync", []))
+    return insn.length
+def _lift_ESYNC(insn, addr, il):
+    il.append(il.intrinsic([], "esync", []))
     return insn.length
 
 def _lift_ILL(insn, addr, il):

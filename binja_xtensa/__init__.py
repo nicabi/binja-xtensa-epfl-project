@@ -117,6 +117,9 @@ class XtensaLE(Architecture):
     intrinsics = {
         "memw": IntrinsicInfo([], []),
         "isync": IntrinsicInfo([], []),
+        "dsync": IntrinsicInfo([], []),
+        "esync": IntrinsicInfo([], []),
+        "rsync": IntrinsicInfo([], []),
     }
 
     def _decode_instruction(self, data, addr):
