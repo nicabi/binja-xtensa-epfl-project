@@ -6,7 +6,7 @@ address where that instruction is, and we return BNIL.
 """
 from binaryninja import Architecture, LowLevelILLabel, LLIL_TEMP
 
-from .instruction import sign_extend
+from .instruction import Instruction, sign_extend
 
 def _reg_name(insn, fmt, offset=0):
     """Get the concrete register for a particular part of an instruction
@@ -38,7 +38,7 @@ def _reg_name(insn, fmt, offset=0):
         # registers, etc.
         raise Exception("Unimplemented reg name fmt: " + fmt)
 
-def lift(insn, addr, il):
+def lift(insn, addr, il, data=None):
     """Dispatch function for lifting
 
     Looks up _lift_MNEM() in the current global namespace (I think that's just
@@ -53,6 +53,9 @@ def lift(insn, addr, il):
     except KeyError:
         il.append(il.unimplemented())
         return insn.length
+
+    if "LOOP" in insn.mnem:
+        return func(insn, addr, il, data)
 
     return func(insn, addr, il)
 
@@ -798,7 +801,7 @@ def _lift_CLAMPS(insn, addr, il):
 #     # il.set_current_address(addr)
 #     return insn.length
 
-def _lift_LOOP(insn, addr, il):
+def _lift_LOOP_simple(insn, addr, il):
     # Set constant we need for the function
     cnt = il.reg(4, _reg_name(insn, "as")) 
     end_addr = addr + 4 + insn.imm8
@@ -833,39 +836,59 @@ def _lift_LOOP(insn, addr, il):
     return insn.length
 
 
-# def _lift_LOOP(insn, addr, il):
-#     # Set constant we need for the function
-#     cnt = il.reg(4, _reg_name(insn, "as")) 
-#     end_addr = addr + 4 + insn.imm8
-#     true_label = LowLevelILLabel()
-#     false_label = LowLevelILLabel()
-
-#     # Set registers
-#     il.append(il.set_reg(4, "lcount", cnt))
-#     il.append(il.set_reg(4, "lbeg", il.const(4, addr + 3)))
-#     il.append(il.set_reg(4, "lend", il.const(4, end_addr)))
-
-#     # Begin for loop
-#     il.append( il.set_reg(4, "lcount", il.add(4, il.reg(4, "lcount"), il.const(4, -1))))
 
 
-#     # Jump to end and configure end loop
-#     il.set_current_address(end_addr)
+def _lift_LOOP(insn, addr, il, data):
+    # if we don't have enough data in insn, we just lift it one at a time
+    if len(data) < insn.imm8 + 3:
+        return _lift_LOOP_simple(insn, addr, il)
+    # If the whole block in the data, we lift them all!
+    
+    # Set constant we need for the function
+    cnt = il.reg(4, _reg_name(insn, "as")) 
+    end_addr = addr + 4 + insn.imm8
+    false_label = LowLevelILLabel()
+    begin_label = LowLevelILLabel()
+    end_label = LowLevelILLabel()
 
-#     # Check if loop if finished or not
-#     cond = il.compare_equal(4, il.reg(4, "lcount"), il.const(4, 0))
-#     il.append( il.if_expr(cond, true_label, false_label))
+    # Set registers
+    il.append(il.set_reg(4, "lcount", cnt))
+    il.append(il.set_reg(4, "lbeg", il.const(4, addr + 3)))
+    il.append(il.set_reg(4, "lend", il.const(4, end_addr)))
 
-#     # If false, we do keep going and decrease the counter
-#     il.mark_label(false_label)
-#     # Always jump to beginning of loop. 
-#     il.append(il.jump(il.reg(4, "lbeg")))
-#     # If true, loop ends, and we do nothing
-#     il.mark_label(true_label)
+    # Begin for loop
+    # Check if loop if finished or not
+    il.mark_label(begin_label)
+    cond = il.compare_equal(4, il.reg(4, "lcount"), il.const(4, 0))
+    il.append( il.if_expr(cond, end_label, false_label))
 
-#     # If loop is finished, branch
-#     il.set_current_address(addr)
-#     return insn.length
+    # If false, we do keep going and decrease the counter
+    il.mark_label(false_label)
+    il.append( il.set_reg(4, "lcount", il.add(4, il.reg(4, "lcount"), il.const(4, -1))))
+
+    curr_addr, curr_data = addr + 3, data[3:]
+    total_len = insn.length
+    while(curr_addr < end_addr):
+
+        il.set_current_address(curr_addr)
+        insn = None
+        try:
+            insn = Instruction.decode(curr_data)
+        except:
+            # Skip an instruction if you can't decode it
+            curr_addr, curr_data = curr_addr + 3, curr_data[3:]
+            continue
+        print(hex(curr_addr), insn.mnem)
+        insn_len = lift(insn, curr_addr, il)
+        total_len += insn_len
+        curr_addr, curr_data = curr_addr + insn_len, curr_data[insn_len:]
+
+    # Jump to the beginning of the loop
+    il.append(il.goto(begin_label))
+    il.mark_label(end_label)
+
+    return total_len
+
 
 _lift_LOOPNEZ = _lift_LOOP
 _lift_LOOPGTZ = _lift_LOOP
