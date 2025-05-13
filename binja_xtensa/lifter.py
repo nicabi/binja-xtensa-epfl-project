@@ -714,6 +714,89 @@ _lift_RETW = _lift_RET
 _lift_RETW_N = _lift_RET
 _lift_ENTRY = _lift_NOP
 
+#########################################################
+#### Miscellaneous Operations Option (Section 4.3.8) ####
+#########################################################
+
+def _lift_minmax(cond_func, left, right, insn, addr, il):
+    """Helper for lifting min/max  operations 
+    
+    We pass in an IL condition (LowLevelILExpr), the right condition for min/max and
+    the left and right operands. This will then lift the instruction using an if statement
+    to branch based on the left and right values. left and right are both ExpressionIndex.
+    Functions to use, where one needs to also pay attention to the signed/unnsigned version
+    MAX -> greater_equal/greater 
+    MIN -> lesser_equal/lesser
+    """
+    true_label = LowLevelILLabel()
+    false_label = LowLevelILLabel()
+    end_label = LowLevelILLabel()
+    cond = cond_func(4, left, right)
+    il.append(il.if_expr(cond, true_label, false_label))
+    
+    il.mark_label(true_label)
+    il.append(il.set_reg(4, _reg_name(insn, "ar"), left))
+    il.append(il.goto(end_label))
+    
+    il.mark_label(false_label)
+    il.append(il.set_reg(4, _reg_name(insn, "ar"), right))
+    il.append(il.goto(end_label))
+    il.mark_label(end_label)
+    return insn.length
+
+def _lift_MAXU(insn, addr, il):
+    return _lift_minmax(il.compare_unsigned_greater_equal,il.reg(4, _reg_name(insn, "as")), il.reg(4, _reg_name(insn, "at")), insn, addr, il)
+def _lift_MAX(insn, addr, il):
+    return _lift_minmax(il.compare_signed_greater_equal,  il.reg(4, _reg_name(insn, "as")), il.reg(4, _reg_name(insn, "at")), insn, addr, il)
+def _lift_MIN(insn, addr, il):
+    return _lift_minmax(il.compare_signed_less_equal,   il.reg(4, _reg_name(insn, "as")), il.reg(4, _reg_name(insn, "at")), insn, addr, il)
+def _lift_MINU(insn, addr, il):
+    return _lift_minmax(il.compare_unsigned_less_equal, il.reg(4, _reg_name(insn, "as")), il.reg(4, _reg_name(insn, "at")), insn, addr, il)
+
+# TODO: Fix warning "Unresolved Stack Pointer Value - Can't merge"
+# Needs to compute : y ← min(max(x, − (2**imm)), 2imm−1)
+def _lift_CLAMPS(insn, addr, il):
+    x = il.reg(4, _reg_name(insn, "as")) 
+    ar_reg = il.reg(4, _reg_name(insn, "ar")) 
+    imm1 = il.const(4, - 2**(insn.t + 7))
+    imm2 = il.const(4, 2**(insn.t + 7) - 1)
+
+    underflow_label = LowLevelILLabel()
+    overflow_label = LowLevelILLabel()
+    value_label = LowLevelILLabel()
+    false_label = LowLevelILLabel()
+    end_label = LowLevelILLabel()
+
+    cond = il.compare_signed_less_equal(4, x, imm1)
+    il.append(il.if_expr(cond, underflow_label, false_label))
+    
+    # Underflow
+    il.mark_label(underflow_label)
+    il.append(il.set_reg(4, ar_reg, imm1))
+    il.append(il.goto(end_label))
+    
+    il.mark_label(false_label)
+    cond = il.compare_signed_greater_equal(4, x, imm2)
+    il.append(il.if_expr(cond, overflow_label, value_label))
+
+    # Overflow
+    il.mark_label(overflow_label)
+    il.append(il.set_reg(4, ar_reg, imm2))
+    il.append(il.goto(end_label))
+
+    # Value
+    il.mark_label(value_label)
+    il.append(il.set_reg(4, ar_reg, x))
+    il.append(il.goto(end_label))
+
+    il.mark_label(end_label)
+
+    return insn.length
+# def _lift_NSA(insn, addr, il):
+# def _lift_NSAU(insn, addr, il):
+# def _lift_SEXT(insn, addr, il):
+
+
 
 # Bellow this point, I have not checked the instructions myself - Nicu
 
