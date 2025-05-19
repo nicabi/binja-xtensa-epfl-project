@@ -365,7 +365,6 @@ _disassemble_LDINC = _dis("mw as")
 _disassemble_LICT = _dis("at as")
 _disassemble_LICW = _dis("at as")
 
-# Loop Options - TODO - Test
 _disassemble_LOOP = _dis("as imm8")
 _disassemble_LOOPGTZ = _dis("as imm8")
 _disassemble_LOOPNEZ = _dis("as imm8")

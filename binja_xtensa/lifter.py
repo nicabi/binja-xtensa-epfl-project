@@ -6,7 +6,7 @@ address where that instruction is, and we return BNIL.
 """
 from binaryninja import Architecture, LowLevelILLabel, LLIL_TEMP
 
-from .instruction import sign_extend
+from .instruction import Instruction, sign_extend
 
 def _reg_name(insn, fmt, offset=0):
     """Get the concrete register for a particular part of an instruction
@@ -38,7 +38,7 @@ def _reg_name(insn, fmt, offset=0):
         # registers, etc.
         raise Exception("Unimplemented reg name fmt: " + fmt)
 
-def lift(insn, addr, il):
+def lift(insn, addr, il, data=None):
     """Dispatch function for lifting
 
     Looks up _lift_MNEM() in the current global namespace (I think that's just
@@ -53,6 +53,9 @@ def lift(insn, addr, il):
     except KeyError:
         il.append(il.unimplemented())
         return insn.length
+
+    if "LOOP" in insn.mnem:
+        return func(insn, addr, il, data)
 
     return func(insn, addr, il)
 
@@ -714,6 +717,38 @@ _lift_RETW = _lift_RET
 _lift_RETW_N = _lift_RET
 _lift_ENTRY = _lift_NOP
 
+###############################################
+######### 32-bit Integer Divide Option ########
+###############################################
+
+def _lift_REMU(insn, addr, il):
+    il.append(il.set_reg(4, _reg_name(insn, "ar"),
+        il.mod_unsigned(4,
+                il.reg(4, _reg_name(insn, "as")),
+                il.reg(4, _reg_name(insn, "at")))))
+
+    return insn.length
+def _lift_REMS(insn, addr, il):
+    il.append(il.set_reg(4, _reg_name(insn, "ar"),
+        il.mod_signed(4,
+                il.reg(4, _reg_name(insn, "as")),
+                il.reg(4, _reg_name(insn, "at")))))
+    return insn.length
+
+def _lift_QUOU(insn, addr, il):
+    il.append(il.set_reg(4, _reg_name(insn, "ar"),
+        il.div_unsigned(4,
+                il.reg(4, _reg_name(insn, "as")),
+                il.reg(4, _reg_name(insn, "at")))))
+
+    return insn.length
+def _lift_QUOS(insn, addr, il):
+    il.append(il.set_reg(4, _reg_name(insn, "ar"),
+        il.div_signed(4,
+                il.reg(4, _reg_name(insn, "as")),
+                il.reg(4, _reg_name(insn, "at")))))
+    return insn.length
+
 #########################################################
 #### Miscellaneous Operations Option (Section 4.3.8) ####
 #########################################################
@@ -795,6 +830,146 @@ def _lift_CLAMPS(insn, addr, il):
 # def _lift_NSA(insn, addr, il):
 # def _lift_NSAU(insn, addr, il):
 # def _lift_SEXT(insn, addr, il):
+
+
+
+
+##############################################
+################ LOOP MODULE #################
+##############################################
+
+# def _lift_LOOPGTZ(insn, addr, il):
+
+#     # Set constant we need for the function
+#     cnt = il.reg(4, _reg_name(insn, "as")) 
+#     end_addr = addr + 4 + insn.imm8
+#     begin = LowLevelILLabel()
+
+#     il.add_label_for_address(Architecture['xtensa'], end_addr)
+#     end = il.get_label_for_address(Architecture['xtensa'], end_addr)
+#     # TODO: Check condition for loop if as == 0
+
+#     # Set registers
+#     il.append(il.set_reg(4, "lcount", cnt))
+#     il.append(il.set_reg(4, "lbeg", il.const(4, addr + 3)))
+#     il.append(il.set_reg(4, "lend", il.const(4, end_addr)))
+#     # Begin for loop
+#     il.mark_label(begin)
+#     il.append( il.set_reg(4, "lcount", il.add(4, il.reg(4, "lcount"), il.const(4, -1))))
+
+#     # Jump to end and configure end loop
+#     il.set_current_address(end_addr)
+#     cond = il.compare_equal(4, il.reg(4, "lcount"), il.const(4, 0))
+#     il.append( il.if_expr(cond, end, begin))
+#     # If loop is finished, branch
+#     # il.set_current_address(addr)
+#     return insn.length
+
+def _lift_LOOP_simple(insn, addr, il):
+    # Set constant we need for the function
+    cnt = il.reg(4, _reg_name(insn, "as")) 
+    end_addr = addr + 4 + insn.imm8
+    false_label = LowLevelILLabel()
+    begin_label = LowLevelILLabel()
+    end_label = LowLevelILLabel()
+
+    # Set registers
+    il.append(il.set_reg(4, "lcount", cnt))
+    il.append(il.set_reg(4, "lbeg", il.const(4, addr + 3)))
+    il.append(il.set_reg(4, "lend", il.const(4, end_addr)))
+
+    # Begin for loop
+    # Check if loop if finished or not
+    il.mark_label(begin_label)
+    cond = il.compare_equal(4, il.reg(4, "lcount"), il.const(4, 0))
+    il.append( il.if_expr(cond, end_label, false_label))
+
+    # If false, we do keep going and decrease the counter
+    il.mark_label(false_label)
+    il.append( il.set_reg(4, "lcount", il.add(4, il.reg(4, "lcount"), il.const(4, -1))))
+    # If true, we already jumped at the ened.
+
+
+    # Jump to end and configure end loop
+    il.set_current_address(end_addr)
+    il.append(il.goto(begin_label))
+    il.mark_label(end_label)
+
+    # If loop is finished, branch
+    il.set_current_address(addr)
+    return insn.length
+
+
+
+
+def _lift_loop_instruction(insn, addr, il, data, loop_type):
+    # If we don't have enough data in insn, we can't lift the LOOP instruction
+    # Require Function level lifting --> To be added in future Binja version
+    if len(data) < insn.imm8 + 3:
+        il.append(il.unimplemented())
+        return insn.length
+    
+    # If the whole block in the data, we lift them all!
+    # Set constant we need for the function
+    cnt = il.reg(4, _reg_name(insn, "as")) 
+    end_addr = addr + 4 + insn.imm8
+    true_check_label = LowLevelILLabel()
+    begin_label = LowLevelILLabel()
+    false_label = LowLevelILLabel()
+    end_label = LowLevelILLabel()
+
+    # Set registers
+    il.append(il.set_reg(4, "lcount", cnt))
+    il.append(il.set_reg(4, "lbeg", il.const(4, addr + 3)))
+    il.append(il.set_reg(4, "lend", il.const(4, end_addr)))
+
+    if loop_type == "LOOP":
+        cond = il.compare_equal(4, cnt, il.const(4, 0))
+        
+        il.append(il.if_expr(cond, true_check_label, begin_label))
+        il.mark_label(true_check_label)
+        il.append(il.set_reg(4, _reg_name(insn, "as"), il.const(4, 2**32)))
+    
+
+    # Begin for loop
+    il.mark_label(begin_label)
+    # Check if loop if finished or not
+    # Checking for less equal will cover LOOPGTZ and LOOPNEZ conditions
+    cond = il.compare_signed_less_equal(4, il.reg(4, "lcount"), il.const(4, 0))
+    il.append( il.if_expr(cond, end_label, false_label))
+    # If false, we keep going and decrease the counter
+    il.mark_label(false_label)
+    il.append( il.set_reg(4, "lcount", il.add(4, il.reg(4, "lcount"), il.const(4, -1))))
+
+    # lift all instructions in the loop block
+    curr_addr, curr_data = addr + 3, data[3:]
+    total_len = insn.length
+    while(curr_addr < end_addr):
+
+        il.set_current_address(curr_addr)
+        insn = None
+        try:
+            insn = Instruction.decode(curr_data)
+        except:
+            # Skip an instruction if you can't decode it
+            curr_addr, curr_data = curr_addr + 3, curr_data[3:]
+            continue
+        insn_len = lift(insn, curr_addr, il)
+        total_len += insn_len
+        curr_addr, curr_data = curr_addr + insn_len, curr_data[insn_len:]
+
+    # Jump to the beginning of the loop
+    il.append(il.goto(begin_label))
+    il.mark_label(end_label)
+    return total_len
+
+
+def _lift_LOOP(insn, addr, il, data):
+    return _lift_loop_instruction(insn, addr, il, data, "LOOP")
+def _lift_LOOPNEZ(insn, addr, il, data):
+    return _lift_loop_instruction(insn, addr, il, data, "LOOPNEZ")
+def _lift_LOOPGTZ(insn, addr, il, data):
+    return _lift_loop_instruction(insn, addr, il, data, "LOOPGTZ")
 
 
 
@@ -1118,9 +1293,16 @@ def _lift_SRA(insn, addr, il):
     return insn.length
 
 def _lift_ISYNC(insn, addr, il):
-    il.append(
-        il.intrinsic([], "isync", [])
-    )
+    il.append(il.intrinsic([], "isync", []))
+    return insn.length
+def _lift_DSYNC(insn, addr, il):
+    il.append(il.intrinsic([], "dsync", []))
+    return insn.length
+def _lift_RSYNC(insn, addr, il):
+    il.append(il.intrinsic([], "rsync", []))
+    return insn.length
+def _lift_ESYNC(insn, addr, il):
+    il.append(il.intrinsic([], "esync", []))
     return insn.length
 
 def _lift_ILL(insn, addr, il):

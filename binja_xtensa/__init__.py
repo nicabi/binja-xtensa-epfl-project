@@ -117,6 +117,9 @@ class XtensaLE(Architecture):
     intrinsics = {
         "memw": IntrinsicInfo([], []),
         "isync": IntrinsicInfo([], []),
+        "dsync": IntrinsicInfo([], []),
+        "esync": IntrinsicInfo([], []),
+        "rsync": IntrinsicInfo([], []),
     }
 
     def _decode_instruction(self, data, addr):
@@ -171,7 +174,7 @@ class XtensaLE(Architecture):
         insn = self._decode_instruction(data, addr)
         if not insn:
             return None
-        return lift(insn, addr, il)
+        return lift(insn, addr, il, data)
 
 
 class XtensaCall0CallingConvention(CallingConvention):
