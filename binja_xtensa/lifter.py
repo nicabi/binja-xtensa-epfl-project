@@ -838,17 +838,20 @@ def _lift_LOOP_simple(insn, addr, il):
 
 
 
-def _lift_LOOP(insn, addr, il, data):
-    # if we don't have enough data in insn, we just lift it one at a time
+def _lift_loop_instruction(insn, addr, il, data, loop_type):
+    # If we don't have enough data in insn, we can't lift the LOOP instruction
+    # Require Function level lifting --> To be added in future Binja version
     if len(data) < insn.imm8 + 3:
-        return _lift_LOOP_simple(insn, addr, il)
-    # If the whole block in the data, we lift them all!
+        il.append(il.unimplemented())
+        return insn.length
     
+    # If the whole block in the data, we lift them all!
     # Set constant we need for the function
     cnt = il.reg(4, _reg_name(insn, "as")) 
     end_addr = addr + 4 + insn.imm8
-    false_label = LowLevelILLabel()
+    true_check_label = LowLevelILLabel()
     begin_label = LowLevelILLabel()
+    false_label = LowLevelILLabel()
     end_label = LowLevelILLabel()
 
     # Set registers
@@ -856,16 +859,25 @@ def _lift_LOOP(insn, addr, il, data):
     il.append(il.set_reg(4, "lbeg", il.const(4, addr + 3)))
     il.append(il.set_reg(4, "lend", il.const(4, end_addr)))
 
-    # Begin for loop
-    # Check if loop if finished or not
-    il.mark_label(begin_label)
-    cond = il.compare_equal(4, il.reg(4, "lcount"), il.const(4, 0))
-    il.append( il.if_expr(cond, end_label, false_label))
+    if loop_type == "LOOP":
+        cond = il.compare_equal(4, cnt, il.const(4, 0))
+        
+        il.append(il.if_expr(cond, true_check_label, begin_label))
+        il.mark_label(true_check_label)
+        il.append(il.set_reg(4, _reg_name(insn, "as"), il.const(4, 2**32)))
+    
 
-    # If false, we do keep going and decrease the counter
+    # Begin for loop
+    il.mark_label(begin_label)
+    # Check if loop if finished or not
+    # Checking for less equal will cover LOOPGTZ and LOOPNEZ conditions
+    cond = il.compare_signed_less_equal(4, il.reg(4, "lcount"), il.const(4, 0))
+    il.append( il.if_expr(cond, end_label, false_label))
+    # If false, we keep going and decrease the counter
     il.mark_label(false_label)
     il.append( il.set_reg(4, "lcount", il.add(4, il.reg(4, "lcount"), il.const(4, -1))))
 
+    # lift all instructions in the loop block
     curr_addr, curr_data = addr + 3, data[3:]
     total_len = insn.length
     while(curr_addr < end_addr):
@@ -878,7 +890,6 @@ def _lift_LOOP(insn, addr, il, data):
             # Skip an instruction if you can't decode it
             curr_addr, curr_data = curr_addr + 3, curr_data[3:]
             continue
-        print(hex(curr_addr), insn.mnem)
         insn_len = lift(insn, curr_addr, il)
         total_len += insn_len
         curr_addr, curr_data = curr_addr + insn_len, curr_data[insn_len:]
@@ -886,15 +897,17 @@ def _lift_LOOP(insn, addr, il, data):
     # Jump to the beginning of the loop
     il.append(il.goto(begin_label))
     il.mark_label(end_label)
-
     return total_len
 
 
-_lift_LOOPNEZ = _lift_LOOP
-_lift_LOOPGTZ = _lift_LOOP
+def _lift_LOOP(insn, addr, il, data):
+    return _lift_loop_instruction(insn, addr, il, data, "LOOP")
+def _lift_LOOPNEZ(insn, addr, il, data):
+    return _lift_loop_instruction(insn, addr, il, data, "LOOPNEZ")
+def _lift_LOOPGTZ(insn, addr, il, data):
+    return _lift_loop_instruction(insn, addr, il, data, "LOOPGTZ")
 
-# def _lift_LOOPNEZ(insn, addr, il):
-# def _lift_LOOPGTZ(insn, addr, il):
+
 
 # Bellow this point, I have not checked the instructions myself - Nicu
 
