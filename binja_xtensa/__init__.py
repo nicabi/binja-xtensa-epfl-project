@@ -47,8 +47,8 @@ I've attempted to document how that works.
 
 from binaryninja import (Architecture, BinaryViewType, CallingConvention,
                          IntrinsicInfo, InstructionInfo, InstructionTextToken,
-                         RegisterInfo, log, LowLevelILFunction, 
-                         RegisterStackInfo)
+                         IntrinsicInput, RegisterInfo, log, LowLevelILFunction, 
+                         RegisterStackInfo, types)
 from binaryninja.enums import (BranchType, Endianness, FlagRole,
                                LowLevelILFlagCondition)
 
@@ -115,12 +115,44 @@ class XtensaLE(Architecture):
     flags_required_for_flag_condition = {}
 
     intrinsics = {
+        # Core Architecture
         "memw": IntrinsicInfo([], []),
         "isync": IntrinsicInfo([], []),
         "dsync": IntrinsicInfo([], []),
         "esync": IntrinsicInfo([], []),
         "rsync": IntrinsicInfo([], []),
-    }
+        
+        # Debug Option
+        "debug_break": IntrinsicInfo([], []),
+
+        # Data Cache Option
+        "data_cache_hit_invalidate": IntrinsicInfo([], []),
+        "data_cache_hit_writeback": IntrinsicInfo([], []),
+        "data_cache_hit_writeback_invalidate": IntrinsicInfo([], []),
+        "data_cache_index_invalidate": IntrinsicInfo([], []),
+        "data_cache_index_writeback": IntrinsicInfo([], []),
+        "data_cache_index_writeback_invalidate": IntrinsicInfo([], []),
+        "data_cache_prefetch_for_read": IntrinsicInfo([], []),
+        "data_cache_prefetch_for_read_once": IntrinsicInfo([], []),
+        "data_cache_prefetch_for_write": IntrinsicInfo([], []),
+        "data_cache_prefetch_for_write_once": IntrinsicInfo([], []),
+
+        # Data Cache Index Option
+        "data_cache_hit_unlock": IntrinsicInfo([], []),
+        "data_cache_index_unlock": IntrinsicInfo([], []),
+        "data_cache_prefetch_and_lock": IntrinsicInfo([], []),
+    
+        # Instruction Cache Option
+        "instruction_cache_hit_invalidate": IntrinsicInfo([], []),
+        "instruction_cache_index_invalidate": IntrinsicInfo([], []),
+        "instruction_cache_prefetch": IntrinsicInfo([], []),
+
+        # Instruction Cache Index Lock Option
+
+        "instruction_cache_hit_unlock": IntrinsicInfo([], []),
+        "instruction_cache_index_unlock": IntrinsicInfo([], []),
+        "instruction_cache_prefetch_and_lock": IntrinsicInfo([], []),
+    }    
 
     def _decode_instruction(self, data, addr):
         insn = None

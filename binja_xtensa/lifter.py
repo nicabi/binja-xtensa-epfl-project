@@ -717,6 +717,24 @@ _lift_RETW = _lift_RET
 _lift_RETW_N = _lift_RET
 _lift_ENTRY = _lift_NOP
 
+def _lift_L32E(insn, addr, il):
+    va = il.add(4,
+                il.reg(4, _reg_name(insn, "as")),
+                il.const(4, insn.inline0(addr)))
+    il.append(il.set_reg(4, _reg_name(insn, "at"),
+                         il.load(4, va)))
+    return insn.length
+
+
+def _lift_L32E_N(insn, addr, il):
+    _as = il.reg(4, _reg_name(insn, "as"))
+    imm = il.const(4, insn.inline0(addr))
+    va = il.add(4, _as, imm)
+    il.append(il.set_reg(4, _reg_name(insn, "at"),
+                            il.load(4, va)))
+    return insn.length
+
+
 ###############################################
 ######### 32-bit Integer Divide Option ########
 ###############################################
@@ -788,7 +806,6 @@ def _lift_MIN(insn, addr, il):
 def _lift_MINU(insn, addr, il):
     return _lift_minmax(il.compare_unsigned_less_equal, il.reg(4, _reg_name(insn, "as")), il.reg(4, _reg_name(insn, "at")), insn, addr, il)
 
-# TODO: Fix warning "Unresolved Stack Pointer Value - Can't merge"
 # Needs to compute : y ← min(max(x, − (2**imm)), 2imm−1)
 def _lift_CLAMPS(insn, addr, il):
     x = il.reg(4, _reg_name(insn, "as")) 
@@ -827,44 +844,17 @@ def _lift_CLAMPS(insn, addr, il):
     il.mark_label(end_label)
 
     return insn.length
-# def _lift_NSA(insn, addr, il):
-# def _lift_NSAU(insn, addr, il):
-# def _lift_SEXT(insn, addr, il):
-
-
+#TODO: def _lift_NSA(insn, addr, il):
+#TODO: def _lift_NSAU(insn, addr, il):
+#TODO: def _lift_SEXT(insn, addr, il):
 
 
 ##############################################
 ################ LOOP MODULE #################
 ##############################################
 
-# def _lift_LOOPGTZ(insn, addr, il):
-
-#     # Set constant we need for the function
-#     cnt = il.reg(4, _reg_name(insn, "as")) 
-#     end_addr = addr + 4 + insn.imm8
-#     begin = LowLevelILLabel()
-
-#     il.add_label_for_address(Architecture['xtensa'], end_addr)
-#     end = il.get_label_for_address(Architecture['xtensa'], end_addr)
-#     # TODO: Check condition for loop if as == 0
-
-#     # Set registers
-#     il.append(il.set_reg(4, "lcount", cnt))
-#     il.append(il.set_reg(4, "lbeg", il.const(4, addr + 3)))
-#     il.append(il.set_reg(4, "lend", il.const(4, end_addr)))
-#     # Begin for loop
-#     il.mark_label(begin)
-#     il.append( il.set_reg(4, "lcount", il.add(4, il.reg(4, "lcount"), il.const(4, -1))))
-
-#     # Jump to end and configure end loop
-#     il.set_current_address(end_addr)
-#     cond = il.compare_equal(4, il.reg(4, "lcount"), il.const(4, 0))
-#     il.append( il.if_expr(cond, end, begin))
-#     # If loop is finished, branch
-#     # il.set_current_address(addr)
-#     return insn.length
-
+# TODO: Once function lifting feature is added, we can look into lifting Loop blocks which
+#       span multiple basic blocks
 def _lift_LOOP_simple(insn, addr, il):
     # Set constant we need for the function
     cnt = il.reg(4, _reg_name(insn, "as")) 
@@ -908,6 +898,7 @@ def _lift_loop_instruction(insn, addr, il, data, loop_type):
     # Require Function level lifting --> To be added in future Binja version
     if len(data) < insn.imm8 + 5:
         il.append(il.unimplemented())
+        # return _lift_LOOP_simple(insn, addr, il)
         return insn.length
     
     # If the whole block in the data, we lift them all!
@@ -972,6 +963,66 @@ def _lift_LOOPNEZ(insn, addr, il, data):
 def _lift_LOOPGTZ(insn, addr, il, data):
     return _lift_loop_instruction(insn, addr, il, data, "LOOPGTZ")
 
+
+
+##############################################
+################ Debug Option ################
+##############################################
+
+def _lift_BREAK(insn, addr, il):
+    il.append(il.intrinsic([], "debug_break", []))
+    return insn.length
+
+# Helper function to lift all data and instruction cache related option non-test instructions
+def _lift_cache_intrinsic_imm8(insn, il, intrinsic):
+    va = il.add(4, il.reg(4, _reg_name(insn, "as")), il.const(4, insn.imm8 << 2))
+    il.append(il.intrinsic([], intrinsic, [va]))
+    return insn.length
+def _lift_cache_intrinsic_imm4(insn, il, intrinsic):
+    va = il.add(4, il.reg(4, _reg_name(insn, "as")), il.const(4, insn.imm4 << 4))
+    il.append(il.intrinsic([], intrinsic, [va]))
+    return insn.length
+
+##############################################
+############# Data Cache Option ##############
+##############################################
+
+_lift_DHI   = lambda insn, addr, il: _lift_cache_intrinsic_imm8(insn, il, "data_cache_hit_invalidate")
+_lift_DHWB  = lambda insn, addr, il: _lift_cache_intrinsic_imm8(insn, il, "data_cache_hit_writeback")
+_lift_DHWBI = lambda insn, addr, il: _lift_cache_intrinsic_imm8(insn, il, "data_cache_hit_writeback_invalidate")
+
+_lift_DPFR  = lambda insn, addr, il: _lift_cache_intrinsic_imm8(insn, il, "data_cache_prefetch_for_read")
+_lift_DPFRO = lambda insn, addr, il: _lift_cache_intrinsic_imm8(insn, il, "data_cache_prefetch_for_read_once")
+_lift_DPFW  = lambda insn, addr, il: _lift_cache_intrinsic_imm8(insn, il, "data_cache_prefetch_for_write")
+_lift_DPFWO = lambda insn, addr, il: _lift_cache_intrinsic_imm8(insn, il, "data_cache_prefetch_for_write_once")
+
+_lift_DII   = lambda insn, addr, il: _lift_cache_intrinsic_imm8(insn, il, "data_cache_index_invalidate")
+_lift_DIWB  = lambda insn, addr, il: _lift_cache_intrinsic_imm4(insn, il, "data_cache_index_writeback")
+_lift_DIWBI = lambda insn, addr, il: _lift_cache_intrinsic_imm4(insn, il, "data_cache_index_writeback_invalidate")
+
+##############################################
+######## Data Cache Index Lock Option ########
+##############################################
+
+_lift_DHU  = lambda insn, addr, il: _lift_cache_intrinsic_imm4(insn, il, "data_cache_hit_unlock")
+_lift_DIU  = lambda insn, addr, il: _lift_cache_intrinsic_imm4(insn, il, "data_cache_index_unlock")
+_lift_DPFL = lambda insn, addr, il: _lift_cache_intrinsic_imm4(insn, il, "data_cache_prefetch_and_lock")
+
+##############################################
+########## Instruction Cache Option ##########
+##############################################
+
+_lift_IHI = lambda insn, addr, il: _lift_cache_intrinsic_imm8(insn, il, "instruction_cache_hit_invalidate")
+_lift_III = lambda insn, addr, il: _lift_cache_intrinsic_imm8(insn, il, "instruction_cache_index_invalidate")
+_lift_IPF = lambda insn, addr, il: _lift_cache_intrinsic_imm8(insn, il, "instruction_cache_prefetch")
+
+##############################################
+##### Instruction Cache Index Lock Option ####
+##############################################
+
+_lift_IHU  = lambda insn, addr, il: _lift_cache_intrinsic_imm4(insn, il, "instruction_cache_hit_unlock")
+_lift_IIU  = lambda insn, addr, il: _lift_cache_intrinsic_imm4(insn, il, "instruction_cache_index_unlock")
+_lift_IPFL = lambda insn, addr, il: _lift_cache_intrinsic_imm4(insn, il, "instruction_cache_prefetch_and_lock")
 
 
 # Bellow this point, I have not checked the instructions myself - Nicu
@@ -1109,9 +1160,7 @@ def _lift_OR(insn, addr, il):
     return insn.length
 
 def _lift_MEMW(insn, addr, il):
-    il.append(
-        il.intrinsic([], "memw", [])
-    )
+    il.append(il.intrinsic([], "memw", []))
     return insn.length
 
 def _lift_SLLI(insn, addr, il):
@@ -1362,7 +1411,11 @@ def _lift_XSR(insn, addr, il):
     if not sr:
         il.append(il.unimplemented())
     else:
-        il.append( il.set_reg(4, LLIL_TEMP(0), sr[0].lower()))
-        il.append( il.set_reg(4, sr[0].lower(),  il.reg(4, _reg_name(insn, "at"))))
-        il.append( il.set_reg(4,  il.reg(4, _reg_name(insn, "at")), LLIL_TEMP(0)))
+        temp = LLIL_TEMP(0)
+        sr_reg = sr[0].lower()
+        at_reg = _reg_name(insn, "at")
+
+        il.append(il.set_reg(4, temp, il.reg(4, sr_reg)))
+        il.append(il.set_reg(4, sr_reg, il.reg(4, at_reg)))
+        il.append(il.set_reg(4, at_reg, il.reg(4, temp)))
     return insn.length

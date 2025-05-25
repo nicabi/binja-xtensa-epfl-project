@@ -347,10 +347,12 @@ _disassemble_L16UI = _dis("at as inline0",
 _disassemble_L32AI = _dis("at as inline0",
                           lambda insn, _: _get_imm32_tok(insn.inline0(_)))
 
-_disassemble_L32E = _dis("at as inline0",
-                          lambda insn, _: _get_imm8_tok((insn.r << 2) - 64))
+_disassemble_L32E   = _dis("at as inline0",
+                          lambda insn, _: _get_imm8_tok(insn.inline0(_)))
+_disassemble_L32E_N = _dis("at as inline0",
+                          lambda insn, _: _get_imm8_tok(insn.inline0(_)))
 
-_disassemble_L32I = _dis("at as inline0",
+_disassemble_L32I   = _dis("at as inline0",
                           lambda insn, _: _get_imm32_tok(insn.inline0(_)))
 _disassemble_L32I_N = _dis("at as inline0",
                           lambda insn, _: _get_imm32_tok(insn.inline0(_)))

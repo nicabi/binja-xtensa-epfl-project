@@ -855,7 +855,8 @@ class Instruction:
         # Format RRI4 (t, s, r vary)
         return cls._do_tbl_layer(insn, insn_bytes, "op2", cls._lsc4_map)
 
-    _decode_L32E = mnem("L32E", "RRI4")
+    _decode_L32E = mnem("L32E", "RRI4",
+                        inline0=lambda insn, _: (insn.r << 2) - 64)
     _decode_S32E = mnem("S32E", "RRI4")
 
     _fp0_map = [
