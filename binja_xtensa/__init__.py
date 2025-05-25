@@ -148,10 +148,14 @@ class XtensaLE(Architecture):
         "instruction_cache_prefetch": IntrinsicInfo([], []),
 
         # Instruction Cache Index Lock Option
-
         "instruction_cache_hit_unlock": IntrinsicInfo([], []),
         "instruction_cache_index_unlock": IntrinsicInfo([], []),
         "instruction_cache_prefetch_and_lock": IntrinsicInfo([], []),
+
+        # Debug and Exception Option 
+        "exception_wait": IntrinsicInfo([], []),
+        "return_from_debug_and_dispatch": IntrinsicInfo([], []),
+        "return_from_debug_operation": IntrinsicInfo([], []),    
     }    
 
     def _decode_instruction(self, data, addr):

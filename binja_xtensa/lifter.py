@@ -113,6 +113,65 @@ def _lift_cmov(cond, insn, addr, il, float=False):
     il.mark_label(false_label)
     return insn.length
 
+# Instructions are grouped based on the Xtensa options in which they appear.
+
+##############################################
+####### Core Architecture Instrucitons #######
+############# Code Density Option ############
+##############################################
+
+def _lift_ABS(insn, addr, il):
+    il.append(
+        il.set_reg(4, _reg_name(insn, "ar"),
+                   il.float_abs(4, il.reg(4, _reg_name(insn, "at"))
+                                )))
+    return insn.length
+
+def _lift_ADD(insn, addr, il):
+    il.append(
+        il.set_reg(4, _reg_name(insn, "ar"),
+                   il.add(4,
+                          il.reg(4, _reg_name(insn, "as")),
+                          il.reg(4, _reg_name(insn, "at"))
+                          )))
+    return insn.length
+
+def _lift_ADD_N(insn, addr, il):
+    il.append(
+        il.set_reg(4, _reg_name(insn, "ar"),
+                   il.add(4,
+                          il.reg(4, _reg_name(insn, "as")),
+                          il.reg(4, _reg_name(insn, "at"))
+                          )))
+    return insn.length
+    
+def _lift_ADDI(insn, addr, il):
+    il.append(
+        il.set_reg(4, _reg_name(insn, "at"),
+                   il.add(4,
+                          il.reg(4, _reg_name(insn, "as")),
+                          il.const(4, insn.simm8())
+                          )))
+    return insn.length
+def _lift_ADDI_N(insn, addr, il):
+    il.append(
+        il.set_reg(4, _reg_name(insn, "ar"),
+                   il.add(4,
+                       il.reg(4, _reg_name(insn, "as")),
+                       il.const(4, insn.inline0(addr))
+                   )))
+    return insn.length
+
+def _lift_ADDMI(insn, addr, il):
+    constant = sign_extend(insn.imm8, 8) << 8
+    il.append(
+        il.set_reg(4, _reg_name(insn, "at"),
+                   il.add(4,
+                          il.reg(4, _reg_name(insn, "as")),
+                          il.const(4, constant))))
+    return insn.length
+
+
 def _lift_addx(x_bits, insn, addr, il):
     """Helper for ADDX2, ADDX4, ADDX8"""
     il.append(
@@ -122,6 +181,409 @@ def _lift_addx(x_bits, insn, addr, il):
                                         il.reg(4, _reg_name(insn, "as")),
                                         il.const(4, x_bits)),
                           il.reg(4, _reg_name(insn, "at")))))
+    return insn.length
+
+
+def _lift_ADDX2(insn, addr, il):
+    return _lift_addx(1, insn, addr, il)
+
+def _lift_ADDX4(insn, addr, il):
+    return _lift_addx(2, insn, addr, il)
+
+def _lift_ADDX8(insn, addr, il):
+    return _lift_addx(3, insn, addr, il)
+
+def _lift_AND(insn, addr, il):
+    il.append(
+        il.set_reg(4, _reg_name(insn, "ar"),
+                   il.and_expr(4,
+                              il.reg(4, _reg_name(insn, "as")),
+                              il.reg(4, _reg_name(insn, "at"))
+                              )))
+    return insn.length
+
+def _lift_BALL(insn, addr, il):
+    cond = il.compare_equal(4,
+                            il.and_expr(4,
+                                il.reg(4, _reg_name(insn, "at")),
+                                il.not_expr(4, il.reg(4, _reg_name(insn, "as")))
+                            ),
+                            il.const(4, 0))
+    return _lift_cond(cond, insn, addr, il)
+
+def _lift_BANY(insn, addr, il):
+    cond = il.compare_not_equal(4,
+                            il.and_expr(4,
+                                il.reg(4, _reg_name(insn, "as")),
+                                il.reg(4, _reg_name(insn, "at"))
+                            ),
+                            il.const(4, 0))
+    return _lift_cond(cond, insn, addr, il)
+
+def _lift_BBC(insn, addr, il):
+    cond = il.compare_equal(4,
+                            il.test_bit(4,
+                                il.reg(4, _reg_name(insn, "as")),
+                                # Strictly speaking we're supposed to check the
+                                # low 5 bits of at. I don't really see the need
+                                # to clutter the UI with it
+
+                                # Also: TODO: figure out which way Binja numbers
+                                # the bits
+                                il.reg(4, _reg_name(insn, "at"))
+                            ),
+                            il.const(4, 0))
+    return _lift_cond(cond, insn, addr, il)
+
+def _lift_BBCI(insn, addr, il):
+    cond = il.compare_equal(4,
+                            il.test_bit(4,
+                                il.reg(4, _reg_name(insn, "as")),
+                                # Also: TODO: figure out which way Binja numbers
+                                # the bits
+                                il.const(4, insn.inline0(addr))
+                            ),
+                            il.const(4, 0))
+    return _lift_cond(cond, insn, addr, il)
+_lift_BBCI_L = _lift_BBCI # We use Little Endinan --> BBCI and BBCI_L are the same
+
+def _lift_BBS(insn, addr, il):
+    cond = il.test_bit(4,
+        il.reg(4, _reg_name(insn, "as")),
+        # Strictly speaking we're supposed to check the
+        # low 5 bits of at. I don't really see the need
+        # to clutter the UI with it
+        il.reg(4, _reg_name(insn, "at")))
+    return _lift_cond(cond, insn, addr, il)
+
+
+def _lift_BBSI(insn, addr, il):
+    cond = il.test_bit(4,
+        il.reg(4, _reg_name(insn, "as")),
+        il.const(4, insn.inline0(addr)))
+    return _lift_cond(cond, insn, addr, il)
+_lift_BBSI_L = _lift_BBSI # We use Little Endinan --> BBSI and BBSI_L are the same
+
+
+def _lift_BEQ(insn, addr, il):
+    cond = il.compare_equal(4,
+                            il.reg(4, _reg_name(insn, "as")),
+                            il.reg(4, _reg_name(insn, "at")))
+    return _lift_cond(cond, insn, addr, il)
+
+def _lift_BEQI(insn, addr, il):
+    cond = il.compare_equal(4, il.reg(4, _reg_name(insn, "as")), il.const(4, insn.b4const()))
+    return _lift_cond(cond, insn, addr, il)
+
+def _lift_BEQZ(insn, addr, il):
+    cond = il.compare_equal(4, il.reg(4, _reg_name(insn, "as")), il.const(4, 0))
+    return _lift_cond(cond, insn, addr, il)
+
+_lift_BEQZ_N = _lift_BEQZ
+
+def _lift_BGE(insn, addr, il):
+    cond = il.compare_signed_greater_equal(4,
+                                           il.reg(4, _reg_name(insn, "as")),
+                                           il.reg(4, _reg_name(insn, "at"))
+                                           )
+    return _lift_cond(cond, insn, addr, il)
+
+def _lift_BGEI(insn, addr, il):
+    cond = il.compare_signed_greater_equal(4,
+                                           il.reg(4, _reg_name(insn, "as")),
+                                           il.const(4, insn.b4const())
+                                           )
+    return _lift_cond(cond, insn, addr, il)
+
+def _lift_BGEU(insn, addr, il):
+    cond = il.compare_unsigned_greater_equal(4,
+                                             il.reg(4, _reg_name(insn, "as")),
+                                             il.reg(4, _reg_name(insn, "at"))
+    )
+    return _lift_cond(cond, insn, addr, il)
+
+def _lift_BGEUI(insn, addr, il):
+    cond = il.compare_unsigned_greater_equal(4,
+                                           il.reg(4, _reg_name(insn, "as")),
+                                           il.const(4, insn.b4constu())
+                                           )
+    return _lift_cond(cond, insn, addr, il)
+
+def _lift_BGEZ(insn, addr, il):
+    cond = il.compare_signed_greater_equal(4,
+                                           il.reg(4, _reg_name(insn, "as")),
+                                           il.const(4, 0))
+    return _lift_cond(cond, insn, addr, il)
+
+def _lift_BLT(insn, addr, il):
+    cond = il.compare_signed_less_than(4,
+                                       il.reg(4, _reg_name(insn, "as")),
+                                       il.reg(4, _reg_name(insn, "at"))
+                                       )
+    return _lift_cond(cond, insn, addr, il)
+
+def _lift_BLTI(insn, addr, il):
+    cond = il.compare_signed_less_than(4,
+                                       il.reg(4, _reg_name(insn, "as")),
+                                       il.const(4, insn.b4const())
+                                       )
+    return _lift_cond(cond, insn, addr, il)
+
+def _lift_BLTU(insn, addr, il):
+    cond = il.compare_unsigned_less_than(4,
+                                         il.reg(4, _reg_name(insn, "as")),
+                                         il.reg(4, _reg_name(insn, "at"))
+                                         )
+    return _lift_cond(cond, insn, addr, il)
+
+def _lift_BLTUI(insn, addr, il):
+    cond = il.compare_unsigned_less_than(4,
+                                         il.reg(4, _reg_name(insn, "as")),
+                                         il.const(4, insn.b4constu())
+                                       )
+    return _lift_cond(cond, insn, addr, il)
+
+def _lift_BLTZ(insn, addr, il):
+    cond = il.compare_signed_less_than(4,
+                                       il.reg(4, _reg_name(insn, "as")),
+                                       il.const(4, 0))
+    return _lift_cond(cond, insn, addr, il)
+
+
+def _lift_BNALL(insn, addr, il):
+    cond = il.compare_not_equal(4,
+                            il.and_expr(4,
+                                il.reg(4, _reg_name(insn, "at")),
+                                il.not_expr(4, il.reg(4, _reg_name(insn, "as")))
+                            ),
+                            il.const(4, 0))
+    return _lift_cond(cond, insn, addr, il)
+
+def _lift_BNE(insn, addr, il):
+    cond = il.compare_not_equal(4,
+                            il.reg(4, _reg_name(insn, "as")),
+                            il.reg(4, _reg_name(insn, "at")))
+    return _lift_cond(cond, insn, addr, il)
+
+def _lift_BNEI(insn, addr, il):
+    cond = il.compare_not_equal(4,
+                                il.reg(4, _reg_name(insn, "as")),
+                                il.const(4, insn.b4const()))
+    return _lift_cond(cond, insn, addr, il)
+
+def _lift_BNEZ(insn, addr, il):
+    cond = il.compare_not_equal(4,
+                                il.reg(4, _reg_name(insn, "as")),
+                                il.const(4, 0))
+    return _lift_cond(cond, insn, addr, il)
+
+_lift_BNEZ_N = _lift_BNEZ
+
+def _lift_BNONE(insn, addr, il):
+    cond = il.compare_equal(4,
+                            il.and_expr(4,
+                                il.reg(4, _reg_name(insn, "as")),
+                                il.reg(4, _reg_name(insn, "at"))
+                            ),
+                            il.const(4, 0))
+    return _lift_cond(cond, insn, addr, il)
+
+def _lift_DSYNC(insn, addr, il):
+    il.append(il.intrinsic([], "dsync", []))
+    return insn.length
+
+def _lift_ESYNC(insn, addr, il):
+    il.append(il.intrinsic([], "esync", []))
+    return insn.length
+
+def _lift_ISYNC(insn, addr, il):
+    il.append(il.intrinsic([], "isync", []))
+    return insn.length
+def _lift_RSYNC(insn, addr, il):
+    il.append(il.intrinsic([], "rsync", []))
+    return insn.length
+
+def _lift_EXTUI(insn, addr, il):
+    inp = il.reg(4, _reg_name(insn, "at"))
+
+    mask = (2 ** insn.inline1(addr)) - 1
+    mask_il = il.const(4, mask)
+
+    shiftimm = insn.extui_shiftimm()
+    if shiftimm:
+        shift_il = il.const(1, shiftimm)
+        shifted = il.logical_shift_right(4, inp, shift_il)
+        anded = il.and_expr(4, shifted, mask_il)
+    else:
+        # If we don't have to shift (thus shiftimm should be 0), then don't emit
+        # the IL for it
+        anded = il.and_expr(4, inp, mask_il)
+
+    il.append(il.set_reg(4, _reg_name(insn, "ar"), anded))
+    return insn.length
+
+# TODO: def EXTW
+
+def _lift_J(insn, addr, il):
+    il.append(il.jump(il.const(4, insn.target_offset(addr))))
+    return insn.length
+
+def _lift_JX(insn, addr, il):
+    il.append(il.jump(il.reg(4, _reg_name(insn, "as"))))
+    return insn.length
+
+def _lift_MEMW(insn, addr, il):
+    il.append(il.intrinsic([], "memw", []))
+    return insn.length
+
+def _lift_MOV_N(insn, addr, il):
+    il.append( il.set_reg(4, _reg_name(insn, "at"),
+                              il.reg(4, _reg_name(insn, "as"))))
+    return insn.length
+
+def _lift_MOVEQZ(insn, addr, il):
+    cond = il.compare_equal(4,
+                            il.reg(4, _reg_name(insn, "at")),
+                            il.const(4, 0))
+    return _lift_cmov(cond, insn, addr, il)
+
+def _lift_MOVGEZ(insn, addr, il):
+    cond = il.compare_signed_greater_equal(4,
+                            il.reg(4, _reg_name(insn, "at")),
+                            il.const(4, 0))
+    return _lift_cmov(cond, insn, addr, il)
+
+def _lift_MOVNEZ(insn, addr, il):
+    cond = il.compare_not_equal(4,
+                            il.reg(4, _reg_name(insn, "at")),
+                            il.const(4, 0))
+    return _lift_cmov(cond, insn, addr, il)
+
+def _lift_MOVLTZ(insn, addr, il):
+    cond = il.compare_signed_less_than(4,
+                            il.reg(4, _reg_name(insn, "at")),
+                            il.const(4, 0))
+    return _lift_cmov(cond, insn, addr, il)
+
+def _lift_MOVI(insn, addr, il):
+    il.append(il.set_reg(4, _reg_name(insn, "at"),
+                         il.const(4, insn.inline0(addr))))
+    return insn.length
+
+def _lift_MOVI_N(insn, addr, il):
+    il.append(
+        il.set_reg(4, _reg_name(insn, "as"),
+                   il.const(4, insn.inline0(addr))
+                   ))
+    return insn.length
+
+def _lift_NEG(insn, addr, il):
+    il.append(
+        il.set_reg(4, _reg_name(insn, "ar"),
+                   il.neg_expr(4, il.reg(4, _reg_name(insn, "at")))))
+    return insn.length
+
+def _lift_NOP(insn, addr, il):
+    il.append(il.nop())
+    return insn.length
+_lift_NOP_N = _lift_NOP
+
+def _lift_OR(insn, addr, il):
+    il.append(
+        il.set_reg(4, _reg_name(insn, "ar"),
+                   il.or_expr(4,
+                              il.reg(4, _reg_name(insn, "as")),
+                              il.reg(4, _reg_name(insn, "at"))
+                              )))
+    return insn.length
+
+def _lift_SLL(insn, addr, il):
+    il.append(il.set_reg(4, _reg_name(insn, "ar"),
+                         il.shift_left(4,
+                                       il.reg(4, _reg_name(insn, "as")),
+                                       il.reg(1, "sar"))))
+    return insn.length
+
+def _lift_SLLI(insn, addr, il):
+    il.append(il.set_reg(4, _reg_name(insn, "ar"),
+                   il.shift_left(4,
+                       il.reg(4, _reg_name(insn, "as")),
+                       il.const(1, insn.inline0(addr)))))
+    return insn.length
+
+def _lift_SRA(insn, addr, il):
+    il.append(il.set_reg(4, _reg_name(insn, "ar"),
+                         il.arith_shift_right(4,
+                                              il.reg(4, _reg_name(insn, "at")),
+                                              il.reg(1, "sar"))))
+    return insn.length
+
+def _lift_SRAI(insn, addr, il):
+    il.append(
+        il.set_reg(4, _reg_name(insn, "ar"),
+                   il.arith_shift_right(4,
+                                        il.reg(4, _reg_name(insn, "at")),
+                                        il.const(4, insn.inline0(addr)))))
+    return insn.length
+
+def _lift_SRC(insn, addr, il):
+    operand = il.reg_split(8,
+                           _reg_name(insn, "as"),
+                           _reg_name(insn, "at"))
+    il.append(il.set_reg(4, _reg_name(insn, "ar"),
+                         il.low_part(4, il.logical_shift_right(8, operand,
+                                                                 il.reg(1, "sar")))))
+    return insn.length
+
+def _lift_SRL(insn, addr, il):
+    il.append(il.set_reg(4, _reg_name(insn, "ar"),
+                         il.logical_shift_right(4,
+                                                il.reg(4, _reg_name(insn, "at")),
+                                                il.reg(1, "sar"))))
+    return insn.length
+
+def _lift_SRLI(insn, addr, il):
+    il.append(
+        il.set_reg(4, _reg_name(insn, "ar"),
+                   il.logical_shift_right(4,
+                                          il.reg(4, _reg_name(insn, "at")),
+                                          il.const(4, insn.s))))
+    return insn.length
+
+# TODO: def _lift_SSA8B 
+def _lift_SSA8L(insn, addr, il):
+    il.append(il.set_reg(1, "sar",
+                         # Low part is not strictly correct... but good enough
+                         il.shift_left(1,
+                                       il.low_part(1, il.reg(4, _reg_name(insn, "as"))),
+                                       il.const(1, 3))))
+    return insn.length
+
+def _lift_SSAI(insn, addr, il):
+    il.append(il.set_reg(1, "sar", 
+                         il.const(1, insn.inline0(addr))))
+    return insn.length
+
+def _lift_SSL(insn, addr, il):
+    il.append(il.set_reg(1, "sar",
+                         il.sub(1,
+                                il.const(1, 32),
+                                il.low_part(1, il.reg(4, _reg_name(insn, "as")))
+                                )))
+    return insn.length
+
+def _lift_SSR(insn, addr, il):
+    il.append(il.set_reg(1, "sar",
+                         il.low_part(1, il.reg(4, _reg_name(insn, "as")))))
+    return insn.length
+
+def _lift_SUB(insn, addr, il):
+    il.append(
+        il.set_reg(4, _reg_name(insn, "ar"),
+                   il.sub(4,
+                          il.reg(4, _reg_name(insn, "as")),
+                          il.reg(4, _reg_name(insn, "at"))
+                          )))
     return insn.length
 
 def _lift_subx(x_bits, insn, addr, il):
@@ -135,94 +597,296 @@ def _lift_subx(x_bits, insn, addr, il):
                           il.reg(4, _reg_name(insn, "at")))))
     return insn.length
 
-def _lift_NOP(insn, addr, il):
-    il.append(il.nop())
-    return insn.length
-_lift_NOP_N = _lift_NOP
+def _lift_SUBX2(insn, addr, il):
+    return _lift_subx(1, insn, addr, il)
 
-#################################
-# Boolean option Chapter 4.3.10 #
-#################################
-def _lift_anyall(insn, addr, il, op):
-    s = _reg_name(insn, "bs")
-    s_reg = il.reg(1, "b" + str(_reg_name(insn, "bs")))
-    t_reg = il.reg(1, "b" + str(_reg_name(insn, "bt")))
-    offset = int(op[-1]) # get the size of the instruction (4 or 8)
-    
-    temp = s_reg
-    for idx in range(s+1, s+offset):
-        if op[:-1] == "ALL":
-            temp = il.and_expr(1, temp, il.reg(1, "b" + str(idx)))
-        elif op[:-1] == "ANY":
-            temp = il.or_expr(1, temp, il.reg(1, "b" + str(idx)))
-        else:
-            raise Exception("Wrong op used in _lift_anyall4. Can only use ANY4, ANY8, ALL4, ALL8, but op was " + op)
+def _lift_SUBX4(insn, addr, il):
+    return _lift_subx(2, insn, addr, il)
 
-    il.append(il.set_reg(2, t_reg, temp))
+def _lift_SUBX8(insn, addr, il):
+    return _lift_subx(3, insn, addr, il)
+
+def _lift_XOR(insn, addr, il):
+    il.append(
+        il.set_reg(4, _reg_name(insn, "ar"),
+                   il.xor_expr(4,
+                          il.reg(4, _reg_name(insn, "as")),
+                          il.reg(4, _reg_name(insn, "at"))
+                          )))
     return insn.length
 
-def _lift_ALL4(insn, addr, il):
-    return _lift_anyall(insn, addr, il, "ALL4")
-def _lift_ALL8(insn, addr, il):
-    return _lift_anyall(insn, addr, il, "ALL8")
-def _lift_ANY4(insn, addr, il):
-    return _lift_anyall(insn, addr, il, "ANY4")
-def _lift_ANY8(insn, addr, il):
-    return _lift_anyall(insn, addr, il, "ANY8")
+##################################################
+# Load and Store instructions in Core Architecture:
 
-# Helper function to implement binary operations of boolean registers
-def _lift_binop_B(insn, addr, il, op):
-    r = il.reg(1, "b" + str(_reg_name(insn, "br")))
-    t = il.reg(1, "b" + str(_reg_name(insn, "bt")))
-    s = il.reg(1, "b" + str(_reg_name(insn, "bs")))
-    
-    bit_t_neg = il.not_expr(1, t) # Negate bit if necessary
-    match op:
-        case "ANDB":    temp = il.and_expr(1, s, t)
-        case "ANDBC":   temp = il.and_expr(1, s, bit_t_neg)
-        case "ORB":     temp = il.or_expr(1,  s, t)
-        case "ORBC":    temp = il.or_expr(1,  s, bit_t_neg)
-        case "XORB":    temp = il.xor_expr(1, s, t)
-    il.append(il.set_reg(2, r, temp))
+def _lift_L8UI(insn, addr, il):
+    va = il.add(4,
+                il.reg(4, _reg_name(insn, "as")),
+                il.const(4, insn.imm8))
+    il.append(il.set_reg(4, _reg_name(insn, "at"),
+                   il.zero_extend(4,
+                                  il.load(1, va))))
     return insn.length
 
-def _lift_ANDB(insn, addr, il):
-    return _lift_binop_B(insn, addr, il, "ANDB")
-def _lift_ANDBC(insn, addr, il):
-    return _lift_binop_B(insn, addr, il, "ANDBC")
-def _lift_ORB(insn, addr, il):
-    return _lift_binop_B(insn, addr, il, "ORB")
-def _lift_ORBC(insn, addr, il):
-    return _lift_binop_B(insn, addr, il, "ORBC")
-def _lift_XORB(insn, addr, il):
-    return _lift_binop_B(insn, addr, il, "XORB")
-
-# Helper function for BF and BT, as only difference is the value of the condition
-def _lift_BFT(insn, addr, il, bit):
-    s = il.reg(1, "b" + str(_reg_name(insn, "bs")))
-    
-    cond = il.compare_equal(1, s, il.const(1, bit)) # 
-    true_label, false_label = LowLevelILLabel(), LowLevelILLabel()
-
-    il.append(il.if_expr(cond, true_label, false_label))
-    il.mark_label(true_label)
-    il.append(il.jump(il.const(4, insn.target_offset(addr))))
-    il.mark_label(false_label)
+def _lift_L16SI(insn, addr, il):
+    va = il.add(4,
+                il.reg(4, _reg_name(insn, "as")),
+                il.const(4, insn.inline0(addr)))
+    il.append(il.set_reg(4, _reg_name(insn, "at"),
+                         il.sign_extend(4, il.load(2, va))))
     return insn.length
 
-def _lift_BF(insn, addr, il):
-    return _lift_BFT(insn, addr, il, 0)
-def _lift_BT(insn, addr, il):
-    return _lift_BFT(insn, addr, il, 1)
+def _lift_L16UI(insn, addr, il):
+    va = il.add(4,
+                il.reg(4, _reg_name(insn, "as")),
+                il.const(4, insn.inline0(addr)))
+    il.append(il.set_reg(4, _reg_name(insn, "at"),
+                         il.zero_extend(4, il.load(2, va))))
+    return insn.length
 
-# Helper function for MOVF and MOVT, as only difference is the value of the condition
-def _lift_MOVFT(insn, addr, il, bit, float):
-    t = _reg_name(insn, "bt")
-    t = il.reg(1, "b" + str(_reg_name(insn, "bt")))
-    cond = il.compare_equal(1,  t, il.const(1, bit))
-    return _lift_cmov(cond, insn, addr, il, float)
-_lift_MOVF_S = lambda insn, addr, il: _lift_MOVFT(insn, addr, il, 0, False)
-_lift_MOVT_S = lambda insn, addr, il: _lift_MOVFT(insn, addr, il, 1, False)
+
+def _lift_L32I(insn, addr, il):
+    va = il.add(4,
+                il.reg(4, _reg_name(insn, "as")),
+                il.const(4, insn.inline0(addr)))
+    il.append(il.set_reg(4, _reg_name(insn, "at"),
+                         il.load(4, va)))
+    return insn.length
+
+def _lift_L32I_N(insn, addr, il):
+    _as = il.reg(4, _reg_name(insn, "as"))
+    imm = il.const(4, insn.inline0(addr))
+    va = il.add(4, _as, imm)
+    il.append(il.set_reg(4, _reg_name(insn, "at"),
+                   il.load(4, va)))
+    return insn.length
+
+def _lift_L32R(insn, addr, il):
+    va = il.const(4, insn.mem_offset(addr))
+    il.append(il.set_reg(4, _reg_name(insn, "at"),
+                   il.load(4, va)))
+    return insn.length
+
+# Store instructions
+def _lift_S8I(insn, addr, il):
+    il.append(il.store(1, il.add(4,
+                                 il.reg(4, _reg_name(insn, "as")),
+                                 il.const(4, insn.imm8)),
+                       il.low_part(1, il.reg(4, _reg_name(insn, "at")))))
+    return insn.length
+
+def _lift_S16I(insn, addr, il):
+    va = il.add(4,
+                il.reg(4, _reg_name(insn, "as")),
+                il.const(4, insn.inline0(addr))
+                )
+    il.append(il.store(2, va,
+                 il.low_part(2, il.reg(4, _reg_name(insn, "at")))))
+    return insn.length
+
+def _lift_S32I(insn, addr, il):
+    va = il.add(4,
+                il.reg(4, _reg_name(insn, "as")),
+                il.const(4, insn.inline0(addr)))
+    il.append(
+        il.store(4, va, il.reg(4, _reg_name(insn, "at"))))
+    return insn.length
+
+def _lift_S32I_N(insn, addr, il):
+    _as = il.reg(4, _reg_name(insn, "as"))
+    imm = il.const(4, insn.inline0(addr))
+    va = il.add(4, _as, imm)
+    il.append(
+        il.store(4, va, il.reg(4, "a" + str(insn.t))))
+    return insn.length
+
+##############################################
+# Special register instructions: RSR, WSR, XSR
+
+def _lift_RSR(insn, addr, il):
+    sr = insn._special_reg_map.get(insn.sr)
+    if not sr:
+        il.append(il.unimplemented())
+    else:
+        il.append( il.set_reg(4, _reg_name(insn, "at"),  il.reg(4, sr[0].lower())))
+
+    return insn.length
+
+def _lift_WSR(insn, addr, il):
+    sr = insn._special_reg_map.get(insn.sr)
+    if not sr:
+        il.append(il.unimplemented())
+    else:
+        il.append( il.set_reg(4, sr[0].lower(),  il.reg(4, _reg_name(insn, "at"))))
+    return insn.length
+
+def _lift_XSR(insn, addr, il):
+    sr = insn._special_reg_map.get(insn.sr)
+    if not sr:
+        il.append(il.unimplemented())
+    else:
+        temp = LLIL_TEMP(0)
+        sr_reg = sr[0].lower()
+        at_reg = _reg_name(insn, "at")
+
+        il.append(il.set_reg(4, temp, il.reg(4, sr_reg)))
+        il.append(il.set_reg(4, sr_reg, il.reg(4, at_reg)))
+        il.append(il.set_reg(4, at_reg, il.reg(4, temp)))
+    return insn.length
+
+###############################################
+### Core Architecture calling instructions ####
+########## Windowed Register Option ###########
+###############################################
+
+def _lift_CALL0(insn, addr, il):
+    dest = il.const(4, insn.target_offset(addr))
+    il.append(
+        il.call(dest))
+    return insn.length
+
+def _lift_CALLX0(insn, addr, il):
+    dest = il.reg(4, _reg_name(insn, "as"))
+    il.append(
+        il.call(dest))
+    return insn.length
+
+def _lift_CALLXn(insn, addr, il, n):
+    dest = il.reg(4, _reg_name(insn, "as"))
+    for i in range(n): il.append(il.set_reg(4, LLIL_TEMP(i), il.reg(4, 'a' + str(i))))
+    for i in range(16-n): il.append(il.set_reg(4, 'a' + str(i), il.reg(4, 'a' + str(i+n))))
+    il.append(il.call(dest))
+    for i in range(16-n): il.append(il.set_reg(4, 'a' + str(i+n), il.reg(4, 'a' + str(i))))
+    for i in range(n): il.append(il.set_reg(4, 'a' + str(i), il.reg(4, LLIL_TEMP(i))))
+
+
+    return insn.length
+_lift_CALLX4  = lambda insn, addr,il: _lift_CALLXn(insn, addr, il, 4)
+_lift_CALLX8  = lambda insn, addr,il: _lift_CALLXn(insn, addr, il, 8)
+_lift_CALLX12 = lambda insn, addr,il: _lift_CALLXn(insn, addr, il, 12)
+
+
+def _lift_CALLn(insn, addr, il, n):
+    dest = il.const(4, insn.target_offset(addr))
+    for i in range(n): il.append(il.set_reg(4, LLIL_TEMP(i), il.reg(4, 'a' + str(i))))
+    for i in range(16-n): il.append(il.set_reg(4, 'a' + str(i), il.reg(4, 'a' + str(i+n))))
+    il.append(il.call(dest))
+    for i in range(16-n): il.append(il.set_reg(4, 'a' + str(i+n), il.reg(4, 'a' + str(i))))
+    for i in range(n): il.append(il.set_reg(4, 'a' + str(i), il.reg(4, LLIL_TEMP(i))))
+
+    return insn.length
+_lift_CALL4  = lambda insn, addr,il: _lift_CALLn(insn, addr, il, 4)
+_lift_CALL8  = lambda insn, addr,il: _lift_CALLn(insn, addr, il, 8)
+_lift_CALL12 = lambda insn, addr,il: _lift_CALLn(insn, addr, il, 12)
+
+
+
+def _lift_RET(insn, addr, il):
+    dest = il.reg(4, 'a0')
+    il.append(il.ret(dest))
+    return insn.length
+_lift_RET_N = _lift_RET
+
+# Dummy lifting to allow the lifter and disassemble to find the right building blocks.
+_lift_RETW = _lift_RET
+_lift_RETW_N = _lift_RET
+_lift_ENTRY = _lift_NOP
+
+def _lift_L32E(insn, addr, il):
+    va = il.add(4,
+                il.reg(4, _reg_name(insn, "as")),
+                il.const(4, insn.inline0(addr)))
+    il.append(il.set_reg(4, _reg_name(insn, "at"),
+                         il.load(4, va)))
+    return insn.length
+
+
+def _lift_L32E_N(insn, addr, il):
+    _as = il.reg(4, _reg_name(insn, "as"))
+    imm = il.const(4, insn.inline0(addr))
+    va = il.add(4, _as, imm)
+    il.append(il.set_reg(4, _reg_name(insn, "at"),
+                            il.load(4, va)))
+    return insn.length
+
+# def _lift_RFWO
+
+##############################################
+####### 16-bit Integer Multiply Option #######
+##############################################
+
+def _lift_MUL16S(insn, addr, il):
+    il.append(
+        il.set_reg(4, _reg_name(insn, "ar"),
+                   il.mult(4,
+                           il.sign_extend(4,
+                               il.low_part(2,
+                                           il.reg(4, _reg_name(insn, "as")))),
+                           il.sign_extend(4,
+                               il.low_part(2,
+                                           il.reg(4, _reg_name(insn, "at"))))
+                           )))
+    return insn.length
+
+def _lift_MUL16U(insn, addr, il):
+    il.append(
+        il.set_reg(4, _reg_name(insn, "ar"),
+                   il.mult(4,
+                           il.zero_extend(4,
+                               il.low_part(2,
+                                           il.reg(4, _reg_name(insn, "as")))),
+                           il.zero_extend(4,
+                               il.low_part(2,
+                                           il.reg(4, _reg_name(insn, "at"))))
+                           )))
+    return insn.length
+
+##############################################
+####### 32-bit Integer Multiply Option #######
+##############################################
+
+def _lift_MULL(insn, addr, il):
+    il.append(
+        il.set_reg(4, _reg_name(insn, "ar"),
+                   il.mult(4,
+                           il.reg(4, _reg_name(insn, "as")),
+                           il.reg(4, _reg_name(insn, "at")))))
+    return insn.length
+
+# def MULSH
+# def MULUH
+
+###############################################
+######### 32-bit Integer Divide Option ########
+###############################################
+
+def _lift_REMU(insn, addr, il):
+    il.append(il.set_reg(4, _reg_name(insn, "ar"),
+        il.mod_unsigned(4,
+                il.reg(4, _reg_name(insn, "as")),
+                il.reg(4, _reg_name(insn, "at")))))
+
+    return insn.length
+def _lift_REMS(insn, addr, il):
+    il.append(il.set_reg(4, _reg_name(insn, "ar"),
+        il.mod_signed(4,
+                il.reg(4, _reg_name(insn, "as")),
+                il.reg(4, _reg_name(insn, "at")))))
+    return insn.length
+
+def _lift_QUOU(insn, addr, il):
+    il.append(il.set_reg(4, _reg_name(insn, "ar"),
+        il.div_unsigned(4,
+                il.reg(4, _reg_name(insn, "as")),
+                il.reg(4, _reg_name(insn, "at")))))
+
+    return insn.length
+def _lift_QUOS(insn, addr, il):
+    il.append(il.set_reg(4, _reg_name(insn, "ar"),
+        il.div_signed(4,
+                il.reg(4, _reg_name(insn, "as")),
+                il.reg(4, _reg_name(insn, "at")))))
+    return insn.length
+
 
 #####################################
 # Floating-point Coprocessor Option #
@@ -407,365 +1071,89 @@ def _lift_SSI(insn, addr, il):
 def _lift_SSX(insn, addr, il):
     return _lift_SSXU(insn, addr, il, False)
 
-
-# From here on down, I lifted instructions in priority order of how much
-# analysis it would get me. So I started with branches and common math and
-# worked my way down the frequency list.
-
-def _lift_ABS(insn, addr, il):
-    il.append(
-        il.set_reg(4, _reg_name(insn, "ar"),
-                   il.float_abs(4, il.reg(4, _reg_name(insn, "at"))
-                                )))
-    return insn.length
-
-def _lift_ADD(insn, addr, il):
-    il.append(
-        il.set_reg(4, _reg_name(insn, "ar"),
-                   il.add(4,
-                          il.reg(4, _reg_name(insn, "as")),
-                          il.reg(4, _reg_name(insn, "at"))
-                          )))
-    return insn.length
-
-def _lift_ADD_N(insn, addr, il):
-    il.append(
-        il.set_reg(4, _reg_name(insn, "ar"),
-                   il.add(4,
-                          il.reg(4, _reg_name(insn, "as")),
-                          il.reg(4, _reg_name(insn, "at"))
-                          )))
-    return insn.length
+#################################
+# Boolean option Chapter 4.3.10 #
+#################################
+def _lift_anyall(insn, addr, il, op):
+    s = _reg_name(insn, "bs")
+    s_reg = il.reg(1, "b" + str(_reg_name(insn, "bs")))
+    t_reg = il.reg(1, "b" + str(_reg_name(insn, "bt")))
+    offset = int(op[-1]) # get the size of the instruction (4 or 8)
     
-def _lift_ADDI(insn, addr, il):
-    il.append(
-        il.set_reg(4, _reg_name(insn, "at"),
-                   il.add(4,
-                          il.reg(4, _reg_name(insn, "as")),
-                          il.const(4, insn.simm8())
-                          )))
-    return insn.length
-def _lift_ADDI_N(insn, addr, il):
-    il.append(
-        il.set_reg(4, _reg_name(insn, "ar"),
-                   il.add(4,
-                       il.reg(4, _reg_name(insn, "as")),
-                       il.const(4, insn.inline0(addr))
-                   )))
+    temp = s_reg
+    for idx in range(s+1, s+offset):
+        if op[:-1] == "ALL":
+            temp = il.and_expr(1, temp, il.reg(1, "b" + str(idx)))
+        elif op[:-1] == "ANY":
+            temp = il.or_expr(1, temp, il.reg(1, "b" + str(idx)))
+        else:
+            raise Exception("Wrong op used in _lift_anyall4. Can only use ANY4, ANY8, ALL4, ALL8, but op was " + op)
+
+    il.append(il.set_reg(2, t_reg, temp))
     return insn.length
 
-def _lift_ADDMI(insn, addr, il):
-    constant = sign_extend(insn.imm8, 8) << 8
-    il.append(
-        il.set_reg(4, _reg_name(insn, "at"),
-                   il.add(4,
-                          il.reg(4, _reg_name(insn, "as")),
-                          il.const(4, constant))))
-    return insn.length
-def _lift_ADDX2(insn, addr, il):
-    return _lift_addx(1, insn, addr, il)
+def _lift_ALL4(insn, addr, il):
+    return _lift_anyall(insn, addr, il, "ALL4")
+def _lift_ALL8(insn, addr, il):
+    return _lift_anyall(insn, addr, il, "ALL8")
+def _lift_ANY4(insn, addr, il):
+    return _lift_anyall(insn, addr, il, "ANY4")
+def _lift_ANY8(insn, addr, il):
+    return _lift_anyall(insn, addr, il, "ANY8")
 
-def _lift_ADDX4(insn, addr, il):
-    return _lift_addx(2, insn, addr, il)
-
-def _lift_ADDX8(insn, addr, il):
-    return _lift_addx(3, insn, addr, il)
-
-
-def _lift_AND(insn, addr, il):
-    il.append(
-        il.set_reg(4, _reg_name(insn, "ar"),
-                   il.and_expr(4,
-                              il.reg(4, _reg_name(insn, "as")),
-                              il.reg(4, _reg_name(insn, "at"))
-                              )))
-    return insn.length
-def _lift_BALL(insn, addr, il):
-    cond = il.compare_equal(4,
-                            il.and_expr(4,
-                                il.reg(4, _reg_name(insn, "at")),
-                                il.not_expr(4, il.reg(4, _reg_name(insn, "as")))
-                            ),
-                            il.const(4, 0))
-    return _lift_cond(cond, insn, addr, il)
-def _lift_BANY(insn, addr, il):
-    cond = il.compare_not_equal(4,
-                            il.and_expr(4,
-                                il.reg(4, _reg_name(insn, "as")),
-                                il.reg(4, _reg_name(insn, "at"))
-                            ),
-                            il.const(4, 0))
-    return _lift_cond(cond, insn, addr, il)
-def _lift_BBC(insn, addr, il):
-    cond = il.compare_equal(4,
-                            il.test_bit(4,
-                                il.reg(4, _reg_name(insn, "as")),
-                                # Strictly speaking we're supposed to check the
-                                # low 5 bits of at. I don't really see the need
-                                # to clutter the UI with it
-
-                                # Also: TODO: figure out which way Binja numbers
-                                # the bits
-                                il.reg(4, _reg_name(insn, "at"))
-                            ),
-                            il.const(4, 0))
-    return _lift_cond(cond, insn, addr, il)
-def _lift_BBCI(insn, addr, il):
-    cond = il.compare_equal(4,
-                            il.test_bit(4,
-                                il.reg(4, _reg_name(insn, "as")),
-                                # Also: TODO: figure out which way Binja numbers
-                                # the bits
-                                il.const(4, insn.inline0(addr))
-                            ),
-                            il.const(4, 0))
-    return _lift_cond(cond, insn, addr, il)
-_lift_BBCI_L = _lift_BBCI # We use Little Endinan --> BBCI and BBCI_L are the same
-
-def _lift_BBS(insn, addr, il):
-    cond = il.test_bit(4,
-        il.reg(4, _reg_name(insn, "as")),
-        # Strictly speaking we're supposed to check the
-        # low 5 bits of at. I don't really see the need
-        # to clutter the UI with it
-        il.reg(4, _reg_name(insn, "at")))
-    return _lift_cond(cond, insn, addr, il)
-
-
-def _lift_BBSI(insn, addr, il):
-    cond = il.test_bit(4,
-        il.reg(4, _reg_name(insn, "as")),
-        il.const(4, insn.inline0(addr)))
-    return _lift_cond(cond, insn, addr, il)
-_lift_BBSI_L = _lift_BBSI # We use Little Endinan --> BBSI and BBSI_L are the same
-
-
-def _lift_BEQ(insn, addr, il):
-    cond = il.compare_equal(4,
-                            il.reg(4, _reg_name(insn, "as")),
-                            il.reg(4, _reg_name(insn, "at")))
-    return _lift_cond(cond, insn, addr, il)
-
-def _lift_BEQI(insn, addr, il):
-    cond = il.compare_equal(4, il.reg(4, _reg_name(insn, "as")), il.const(4, insn.b4const()))
-    return _lift_cond(cond, insn, addr, il)
-
-def _lift_BEQZ(insn, addr, il):
-    cond = il.compare_equal(4, il.reg(4, _reg_name(insn, "as")), il.const(4, 0))
-    return _lift_cond(cond, insn, addr, il)
-
-_lift_BEQZ_N = _lift_BEQZ
-
-def _lift_BGE(insn, addr, il):
-    cond = il.compare_signed_greater_equal(4,
-                                           il.reg(4, _reg_name(insn, "as")),
-                                           il.reg(4, _reg_name(insn, "at"))
-                                           )
-    return _lift_cond(cond, insn, addr, il)
-
-def _lift_BGEI(insn, addr, il):
-    cond = il.compare_signed_greater_equal(4,
-                                           il.reg(4, _reg_name(insn, "as")),
-                                           il.const(4, insn.b4const())
-                                           )
-    return _lift_cond(cond, insn, addr, il)
-
-def _lift_BGEU(insn, addr, il):
-    cond = il.compare_unsigned_greater_equal(4,
-                                             il.reg(4, _reg_name(insn, "as")),
-                                             il.reg(4, _reg_name(insn, "at"))
-    )
-    return _lift_cond(cond, insn, addr, il)
-
-def _lift_BGEUI(insn, addr, il):
-    cond = il.compare_unsigned_greater_equal(4,
-                                           il.reg(4, _reg_name(insn, "as")),
-                                           il.const(4, insn.b4constu())
-                                           )
-    return _lift_cond(cond, insn, addr, il)
-
-def _lift_BGEZ(insn, addr, il):
-    cond = il.compare_signed_greater_equal(4,
-                                           il.reg(4, _reg_name(insn, "as")),
-                                           il.const(4, 0))
-    return _lift_cond(cond, insn, addr, il)
-
-def _lift_BLT(insn, addr, il):
-    cond = il.compare_signed_less_than(4,
-                                       il.reg(4, _reg_name(insn, "as")),
-                                       il.reg(4, _reg_name(insn, "at"))
-                                       )
-    return _lift_cond(cond, insn, addr, il)
-
-def _lift_BLTI(insn, addr, il):
-    cond = il.compare_signed_less_than(4,
-                                       il.reg(4, _reg_name(insn, "as")),
-                                       il.const(4, insn.b4const())
-                                       )
-    return _lift_cond(cond, insn, addr, il)
-
-def _lift_BLTU(insn, addr, il):
-    cond = il.compare_unsigned_less_than(4,
-                                         il.reg(4, _reg_name(insn, "as")),
-                                         il.reg(4, _reg_name(insn, "at"))
-                                         )
-    return _lift_cond(cond, insn, addr, il)
-
-def _lift_BLTUI(insn, addr, il):
-    cond = il.compare_unsigned_less_than(4,
-                                         il.reg(4, _reg_name(insn, "as")),
-                                         il.const(4, insn.b4constu())
-                                       )
-    return _lift_cond(cond, insn, addr, il)
-
-def _lift_BLTZ(insn, addr, il):
-    cond = il.compare_signed_less_than(4,
-                                       il.reg(4, _reg_name(insn, "as")),
-                                       il.const(4, 0))
-    return _lift_cond(cond, insn, addr, il)
-
-
-def _lift_BNALL(insn, addr, il):
-    cond = il.compare_not_equal(4,
-                            il.and_expr(4,
-                                il.reg(4, _reg_name(insn, "at")),
-                                il.not_expr(4, il.reg(4, _reg_name(insn, "as")))
-                            ),
-                            il.const(4, 0))
-    return _lift_cond(cond, insn, addr, il)
-
-def _lift_BNE(insn, addr, il):
-    cond = il.compare_not_equal(4,
-                            il.reg(4, _reg_name(insn, "as")),
-                            il.reg(4, _reg_name(insn, "at")))
-    return _lift_cond(cond, insn, addr, il)
-
-def _lift_BNEI(insn, addr, il):
-    cond = il.compare_not_equal(4,
-                                il.reg(4, _reg_name(insn, "as")),
-                                il.const(4, insn.b4const()))
-    return _lift_cond(cond, insn, addr, il)
-
-def _lift_BNEZ(insn, addr, il):
-    cond = il.compare_not_equal(4,
-                                il.reg(4, _reg_name(insn, "as")),
-                                il.const(4, 0))
-    return _lift_cond(cond, insn, addr, il)
-
-_lift_BNEZ_N = _lift_BNEZ
-
-def _lift_BNONE(insn, addr, il):
-    cond = il.compare_equal(4,
-                            il.and_expr(4,
-                                il.reg(4, _reg_name(insn, "as")),
-                                il.reg(4, _reg_name(insn, "at"))
-                            ),
-                            il.const(4, 0))
-    return _lift_cond(cond, insn, addr, il)
-
-def _lift_CALL0(insn, addr, il):
-    dest = il.const(4, insn.target_offset(addr))
-    il.append(
-        il.call(dest))
+# Helper function to implement binary operations of boolean registers
+def _lift_binop_B(insn, addr, il, op):
+    r = il.reg(1, "b" + str(_reg_name(insn, "br")))
+    t = il.reg(1, "b" + str(_reg_name(insn, "bt")))
+    s = il.reg(1, "b" + str(_reg_name(insn, "bs")))
+    
+    bit_t_neg = il.not_expr(1, t) # Negate bit if necessary
+    match op:
+        case "ANDB":    temp = il.and_expr(1, s, t)
+        case "ANDBC":   temp = il.and_expr(1, s, bit_t_neg)
+        case "ORB":     temp = il.or_expr(1,  s, t)
+        case "ORBC":    temp = il.or_expr(1,  s, bit_t_neg)
+        case "XORB":    temp = il.xor_expr(1, s, t)
+    il.append(il.set_reg(2, r, temp))
     return insn.length
 
-def _lift_CALLX0(insn, addr, il):
-    dest = il.reg(4, _reg_name(insn, "as"))
-    il.append(
-        il.call(dest))
+def _lift_ANDB(insn, addr, il):
+    return _lift_binop_B(insn, addr, il, "ANDB")
+def _lift_ANDBC(insn, addr, il):
+    return _lift_binop_B(insn, addr, il, "ANDBC")
+def _lift_ORB(insn, addr, il):
+    return _lift_binop_B(insn, addr, il, "ORB")
+def _lift_ORBC(insn, addr, il):
+    return _lift_binop_B(insn, addr, il, "ORBC")
+def _lift_XORB(insn, addr, il):
+    return _lift_binop_B(insn, addr, il, "XORB")
+
+# Helper function for BF and BT, as only difference is the value of the condition
+def _lift_BFT(insn, addr, il, bit):
+    s = il.reg(1, "b" + str(_reg_name(insn, "bs")))
+    
+    cond = il.compare_equal(1, s, il.const(1, bit)) # 
+    true_label, false_label = LowLevelILLabel(), LowLevelILLabel()
+
+    il.append(il.if_expr(cond, true_label, false_label))
+    il.mark_label(true_label)
+    il.append(il.jump(il.const(4, insn.target_offset(addr))))
+    il.mark_label(false_label)
     return insn.length
 
+def _lift_BF(insn, addr, il):
+    return _lift_BFT(insn, addr, il, 0)
+def _lift_BT(insn, addr, il):
+    return _lift_BFT(insn, addr, il, 1)
 
-def _lift_CALLXn(insn, addr, il, n):
-    dest = il.reg(4, _reg_name(insn, "as"))
-    for i in range(n): il.append(il.set_reg(4, LLIL_TEMP(i), il.reg(4, 'a' + str(i))))
-    for i in range(16-n): il.append(il.set_reg(4, 'a' + str(i), il.reg(4, 'a' + str(i+n))))
-    il.append(il.call(dest))
-    for i in range(16-n): il.append(il.set_reg(4, 'a' + str(i+n), il.reg(4, 'a' + str(i))))
-    for i in range(n): il.append(il.set_reg(4, 'a' + str(i), il.reg(4, LLIL_TEMP(i))))
-
-
-    return insn.length
-_lift_CALLX4  = lambda insn, addr,il: _lift_CALLXn(insn, addr, il, 4)
-_lift_CALLX8  = lambda insn, addr,il: _lift_CALLXn(insn, addr, il, 8)
-_lift_CALLX12 = lambda insn, addr,il: _lift_CALLXn(insn, addr, il, 12)
-
-
-def _lift_CALLn(insn, addr, il, n):
-    dest = il.const(4, insn.target_offset(addr))
-    for i in range(n): il.append(il.set_reg(4, LLIL_TEMP(i), il.reg(4, 'a' + str(i))))
-    for i in range(16-n): il.append(il.set_reg(4, 'a' + str(i), il.reg(4, 'a' + str(i+n))))
-    il.append(il.call(dest))
-    for i in range(16-n): il.append(il.set_reg(4, 'a' + str(i+n), il.reg(4, 'a' + str(i))))
-    for i in range(n): il.append(il.set_reg(4, 'a' + str(i), il.reg(4, LLIL_TEMP(i))))
-
-    return insn.length
-_lift_CALL4  = lambda insn, addr,il: _lift_CALLn(insn, addr, il, 4)
-_lift_CALL8  = lambda insn, addr,il: _lift_CALLn(insn, addr, il, 8)
-_lift_CALL12 = lambda insn, addr,il: _lift_CALLn(insn, addr, il, 12)
-
-
-
-def _lift_RET(insn, addr, il):
-    dest = il.reg(4, 'a0')
-    il.append(il.ret(dest))
-    return insn.length
-_lift_RET_N = _lift_RET
-
-# Dummy lifting to allow the lifter and disassemble to find the right building blocks.
-_lift_RETW = _lift_RET
-_lift_RETW_N = _lift_RET
-_lift_ENTRY = _lift_NOP
-
-def _lift_L32E(insn, addr, il):
-    va = il.add(4,
-                il.reg(4, _reg_name(insn, "as")),
-                il.const(4, insn.inline0(addr)))
-    il.append(il.set_reg(4, _reg_name(insn, "at"),
-                         il.load(4, va)))
-    return insn.length
-
-
-def _lift_L32E_N(insn, addr, il):
-    _as = il.reg(4, _reg_name(insn, "as"))
-    imm = il.const(4, insn.inline0(addr))
-    va = il.add(4, _as, imm)
-    il.append(il.set_reg(4, _reg_name(insn, "at"),
-                            il.load(4, va)))
-    return insn.length
-
-
-###############################################
-######### 32-bit Integer Divide Option ########
-###############################################
-
-def _lift_REMU(insn, addr, il):
-    il.append(il.set_reg(4, _reg_name(insn, "ar"),
-        il.mod_unsigned(4,
-                il.reg(4, _reg_name(insn, "as")),
-                il.reg(4, _reg_name(insn, "at")))))
-
-    return insn.length
-def _lift_REMS(insn, addr, il):
-    il.append(il.set_reg(4, _reg_name(insn, "ar"),
-        il.mod_signed(4,
-                il.reg(4, _reg_name(insn, "as")),
-                il.reg(4, _reg_name(insn, "at")))))
-    return insn.length
-
-def _lift_QUOU(insn, addr, il):
-    il.append(il.set_reg(4, _reg_name(insn, "ar"),
-        il.div_unsigned(4,
-                il.reg(4, _reg_name(insn, "as")),
-                il.reg(4, _reg_name(insn, "at")))))
-
-    return insn.length
-def _lift_QUOS(insn, addr, il):
-    il.append(il.set_reg(4, _reg_name(insn, "ar"),
-        il.div_signed(4,
-                il.reg(4, _reg_name(insn, "as")),
-                il.reg(4, _reg_name(insn, "at")))))
-    return insn.length
+# Helper function for MOVF and MOVT, as only difference is the value of the condition
+def _lift_MOVFT(insn, addr, il, bit, float):
+    t = _reg_name(insn, "bt")
+    t = il.reg(1, "b" + str(_reg_name(insn, "bt")))
+    cond = il.compare_equal(1,  t, il.const(1, bit))
+    return _lift_cmov(cond, insn, addr, il, float)
+_lift_MOVF_S = lambda insn, addr, il: _lift_MOVFT(insn, addr, il, 0, False)
+_lift_MOVT_S = lambda insn, addr, il: _lift_MOVFT(insn, addr, il, 1, False)
 
 #########################################################
 #### Miscellaneous Operations Option (Section 4.3.8) ####
@@ -889,9 +1277,6 @@ def _lift_LOOP_simple(insn, addr, il):
     il.set_current_address(addr)
     return insn.length
 
-
-
-
 def _lift_loop_instruction(insn, addr, il, data, loop_type):
     # If we don't have enough data in insn, we can't lift the LOOP instruction
     # We need the whole block of the loop and the final instruction to be in the data
@@ -955,7 +1340,6 @@ def _lift_loop_instruction(insn, addr, il, data, loop_type):
     il.mark_label(end_label)
     return total_len
 
-
 def _lift_LOOP(insn, addr, il, data):
     return _lift_loop_instruction(insn, addr, il, data, "LOOP")
 def _lift_LOOPNEZ(insn, addr, il, data):
@@ -963,15 +1347,9 @@ def _lift_LOOPNEZ(insn, addr, il, data):
 def _lift_LOOPGTZ(insn, addr, il, data):
     return _lift_loop_instruction(insn, addr, il, data, "LOOPGTZ")
 
-
-
 ##############################################
-################ Debug Option ################
+############# Data Cache Option ##############
 ##############################################
-
-def _lift_BREAK(insn, addr, il):
-    il.append(il.intrinsic([], "debug_break", []))
-    return insn.length
 
 # Helper function to lift all data and instruction cache related option non-test instructions
 def _lift_cache_intrinsic_imm8(insn, il, intrinsic):
@@ -982,10 +1360,6 @@ def _lift_cache_intrinsic_imm4(insn, il, intrinsic):
     va = il.add(4, il.reg(4, _reg_name(insn, "as")), il.const(4, insn.imm4 << 4))
     il.append(il.intrinsic([], intrinsic, [va]))
     return insn.length
-
-##############################################
-############# Data Cache Option ##############
-##############################################
 
 _lift_DHI   = lambda insn, addr, il: _lift_cache_intrinsic_imm8(insn, il, "data_cache_hit_invalidate")
 _lift_DHWB  = lambda insn, addr, il: _lift_cache_intrinsic_imm8(insn, il, "data_cache_hit_writeback")
@@ -1024,336 +1398,26 @@ _lift_IHU  = lambda insn, addr, il: _lift_cache_intrinsic_imm4(insn, il, "instru
 _lift_IIU  = lambda insn, addr, il: _lift_cache_intrinsic_imm4(insn, il, "instruction_cache_index_unlock")
 _lift_IPFL = lambda insn, addr, il: _lift_cache_intrinsic_imm4(insn, il, "instruction_cache_prefetch_and_lock")
 
+##############################################
+################ Debug Option ################
+##############################################
 
-# Bellow this point, I have not checked the instructions myself - Nicu
+def _lift_BREAK(insn, addr, il):
+    il.append(il.intrinsic([], "debug_break", []))
+    return insn.length
+_lift_BREAK_N = _lift_BREAK
 
-def _lift_L32I_N(insn, addr, il):
-    _as = il.reg(4, _reg_name(insn, "as"))
-    imm = il.const(4, insn.inline0(addr))
-    va = il.add(4, _as, imm)
-    il.append(
-        il.set_reg(4, _reg_name(insn, "at"),
-                   il.load(4, va)
-                   ))
+# Used only in On-Chip Debug Mode
+def _lift_RFDD(insn, addr, il):
+    il.append(il.intrinsic([], "return_from_debug_and_dispatch", []))
+    return insn.length
+def _lift_RFDO(insn, addr, il):
+    il.append(il.intrinsic([], "return_from_debug_operation", []))
     return insn.length
 
-def _lift_L32R(insn, addr, il):
-    va = il.const(4, insn.mem_offset(addr))
-    il.append(
-        il.set_reg(4, _reg_name(insn, "at"),
-                   il.load(4, va)
-                   ))
-    return insn.length
-
-def _lift_S32I_N(insn, addr, il):
-    _as = il.reg(4, _reg_name(insn, "as"))
-    imm = il.const(4, insn.inline0(addr))
-    va = il.add(4, _as, imm)
-    il.append(
-        il.store(4, va, il.reg(4, "a" + str(insn.t))))
-    return insn.length
-
-def _lift_L8UI(insn, addr, il):
-    va = il.add(4,
-                il.reg(4, _reg_name(insn, "as")),
-                il.const(4, insn.imm8))
-    il.append(
-        il.set_reg(4, _reg_name(insn, "at"),
-                   il.zero_extend(4,
-                                  il.load(1, va))))
-    return insn.length
-
-def _lift_S32I(insn, addr, il):
-    va = il.add(4,
-                il.reg(4, _reg_name(insn, "as")),
-                il.const(4, insn.inline0(addr)))
-    il.append(
-        il.store(4, va, il.reg(4, _reg_name(insn, "at"))))
-    return insn.length
-
-def _lift_L32I(insn, addr, il):
-    va = il.add(4,
-                il.reg(4, _reg_name(insn, "as")),
-                il.const(4, insn.inline0(addr)))
-    il.append(il.set_reg(4, _reg_name(insn, "at"),
-                         il.load(4, va)))
-    return insn.length
-
-def _lift_L16SI(insn, addr, il):
-    va = il.add(4,
-                il.reg(4, _reg_name(insn, "as")),
-                il.const(4, insn.inline0(addr)))
-    il.append(il.set_reg(4, _reg_name(insn, "at"),
-                         il.sign_extend(4, il.load(2, va))))
-    return insn.length
-
-def _lift_L16UI(insn, addr, il):
-    va = il.add(4,
-                il.reg(4, _reg_name(insn, "as")),
-                il.const(4, insn.inline0(addr)))
-    il.append(il.set_reg(4, _reg_name(insn, "at"),
-                         il.zero_extend(4, il.load(2, va))))
-    return insn.length
-
-def _lift_J(insn, addr, il):
-    il.append(il.jump(il.const(4, insn.target_offset(addr))))
-    return insn.length
-
-def _lift_JX(insn, addr, il):
-    il.append(il.jump(il.reg(4, _reg_name(insn, "as"))))
-    return insn.length
-
-def _lift_S8I(insn, addr, il):
-    il.append(il.store(1, il.add(4,
-                                 il.reg(4, _reg_name(insn, "as")),
-                                 il.const(4, insn.imm8)),
-                       il.low_part(1, il.reg(4, _reg_name(insn, "at")))))
-    return insn.length
-
-def _lift_MOVI(insn, addr, il):
-    il.append(il.set_reg(4, _reg_name(insn, "at"),
-                         il.const(4, insn.inline0(addr))))
-    return insn.length
-
-def _lift_MOVI_N(insn, addr, il):
-    il.append(
-        il.set_reg(4, _reg_name(insn, "as"),
-                   il.const(4, insn.inline0(addr))
-                   ))
-    return insn.length
-
-def _lift_MOV_N(insn, addr, il):
-    il.append(
-        il.set_reg(4, _reg_name(insn, "at"),
-                   il.reg(4, _reg_name(insn, "as"))
-                   ))
-    return insn.length
-
-def _lift_EXTUI(insn, addr, il):
-    inp = il.reg(4, _reg_name(insn, "at"))
-
-    mask = (2 ** insn.inline1(addr)) - 1
-    mask_il = il.const(4, mask)
-
-    shiftimm = insn.extui_shiftimm()
-    if shiftimm:
-        shift_il = il.const(1, shiftimm)
-        shifted = il.logical_shift_right(4, inp, shift_il)
-        anded = il.and_expr(4, shifted, mask_il)
-    else:
-        # If we don't have to shift (thus shiftimm should be 0), then don't emit
-        # the IL for it
-        anded = il.and_expr(4, inp, mask_il)
-
-    il.append(il.set_reg(4, _reg_name(insn, "ar"),
-                         anded
-                         ))
-    return insn.length
-
-def _lift_OR(insn, addr, il):
-    il.append(
-        il.set_reg(4, _reg_name(insn, "ar"),
-                   il.or_expr(4,
-                              il.reg(4, _reg_name(insn, "as")),
-                              il.reg(4, _reg_name(insn, "at"))
-                              )))
-    return insn.length
-
-def _lift_MEMW(insn, addr, il):
-    il.append(il.intrinsic([], "memw", []))
-    return insn.length
-
-def _lift_SLLI(insn, addr, il):
-    il.append(
-        il.set_reg(4, _reg_name(insn, "ar"),
-                   il.shift_left(4,
-                       il.reg(4, _reg_name(insn, "as")),
-                       il.const(1, insn.inline0(addr))
-                       )))
-    return insn.length
-
-
-
-def _lift_L16UI(insn, addr, il):
-    va = il.add(4,
-                il.reg(4, _reg_name(insn, "as")),
-                il.const(4, insn.inline0(addr)))
-    il.append(
-        il.set_reg(4, _reg_name(insn, "at"),
-                   il.zero_extend(4, il.load(2, va))))
-    return insn.length
-
-
-def _lift_SUB(insn, addr, il):
-    il.append(
-        il.set_reg(4, _reg_name(insn, "ar"),
-                   il.sub(4,
-                          il.reg(4, _reg_name(insn, "as")),
-                          il.reg(4, _reg_name(insn, "at"))
-                          )))
-    return insn.length
-
-
-def _lift_XOR(insn, addr, il):
-    il.append(
-        il.set_reg(4, _reg_name(insn, "ar"),
-                   il.xor_expr(4,
-                          il.reg(4, _reg_name(insn, "as")),
-                          il.reg(4, _reg_name(insn, "at"))
-                          )))
-    return insn.length
-
-def _lift_S16I(insn, addr, il):
-    va = il.add(4,
-                il.reg(4, _reg_name(insn, "as")),
-                il.const(4, insn.inline0(addr))
-                )
-    il.append(
-        il.store(2, va,
-                 il.low_part(2, il.reg(4, _reg_name(insn, "at")))))
-    return insn.length
-
-def _lift_SRAI(insn, addr, il):
-    il.append(
-        il.set_reg(4, _reg_name(insn, "ar"),
-                   il.arith_shift_right(4,
-                                        il.reg(4, _reg_name(insn, "at")),
-                                        il.const(4, insn.inline0(addr)))))
-    return insn.length
-
-
-def _lift_SUBX2(insn, addr, il):
-    return _lift_subx(1, insn, addr, il)
-
-def _lift_SUBX4(insn, addr, il):
-    return _lift_subx(2, insn, addr, il)
-
-def _lift_SUBX8(insn, addr, il):
-    return _lift_subx(3, insn, addr, il)
-
-def _lift_SRLI(insn, addr, il):
-    il.append(
-        il.set_reg(4, _reg_name(insn, "ar"),
-                   il.logical_shift_right(4,
-                                          il.reg(4, _reg_name(insn, "at")),
-                                          il.const(4, insn.s))))
-    return insn.length
-
-    return insn.length
-
-def _lift_MULL(insn, addr, il):
-    il.append(
-        il.set_reg(4, _reg_name(insn, "ar"),
-                   il.mult(4,
-                           il.reg(4, _reg_name(insn, "as")),
-                           il.reg(4, _reg_name(insn, "at")))))
-    return insn.length
-
-def _lift_NEG(insn, addr, il):
-    il.append(
-        il.set_reg(4, _reg_name(insn, "ar"),
-                   il.neg_expr(4, il.reg(4, _reg_name(insn, "at")))))
-    return insn.length
-
-def _lift_SYSCALL(insn, addr, il):
-    il.append(il.system_call())
-    return insn.length
-
-def _lift_MOVEQZ(insn, addr, il):
-    cond = il.compare_equal(4,
-                            il.reg(4, _reg_name(insn, "at")),
-                            il.const(4, 0))
-    return _lift_cmov(cond, insn, addr, il)
-
-def _lift_MOVNEZ(insn, addr, il):
-    cond = il.compare_not_equal(4,
-                            il.reg(4, _reg_name(insn, "at")),
-                            il.const(4, 0))
-    return _lift_cmov(cond, insn, addr, il)
-
-def _lift_MOVGEZ(insn, addr, il):
-    cond = il.compare_signed_greater_equal(4,
-                            il.reg(4, _reg_name(insn, "at")),
-                            il.const(4, 0))
-    return _lift_cmov(cond, insn, addr, il)
-
-def _lift_MOVLTZ(insn, addr, il):
-    cond = il.compare_signed_less_than(4,
-                            il.reg(4, _reg_name(insn, "at")),
-                            il.const(4, 0))
-    return _lift_cmov(cond, insn, addr, il)
-
-def _lift_SSL(insn, addr, il):
-    il.append(il.set_reg(1, "sar",
-                         il.sub(1,
-                                il.const(1, 32),
-                                il.low_part(1, il.reg(4, _reg_name(insn, "as")))
-                                )))
-    return insn.length
-
-def _lift_SSR(insn, addr, il):
-    il.append(il.set_reg(1, "sar",
-                         il.low_part(1, il.reg(4, _reg_name(insn, "as")))))
-    return insn.length
-
-def _lift_SSAI(insn, addr, il):
-    il.append(il.set_reg(1, "sar",
-                         il.const(1, insn.inline0(addr))))
-    return insn.length
-
-def _lift_SLL(insn, addr, il):
-    il.append(il.set_reg(4, _reg_name(insn, "ar"),
-                         il.shift_left(4,
-                                       il.reg(4, _reg_name(insn, "as")),
-                                       il.reg(1, "sar"))))
-    return insn.length
-
-def _lift_SRL(insn, addr, il):
-    il.append(il.set_reg(4, _reg_name(insn, "ar"),
-                         il.logical_shift_right(4,
-                                                il.reg(4, _reg_name(insn, "at")),
-                                                il.reg(1, "sar"))))
-    return insn.length
-
-def _lift_SRC(insn, addr, il):
-    operand = il.reg_split(8,
-                           _reg_name(insn, "as"),
-                           _reg_name(insn, "at"))
-    il.append(il.set_reg(4, _reg_name(insn, "ar"),
-                         il.low_part(4,
-                                     il.logical_shift_right(8,
-                                                            operand,
-                                                            il.reg(1, "sar"))
-                                     )))
-    return insn.length
-
-def _lift_SSA8L(insn, addr, il):
-    il.append(il.set_reg(1, "sar",
-                         # Low part is not strictly correct... but good enough
-                         il.shift_left(1,
-                                       il.low_part(1, il.reg(4, _reg_name(insn, "as"))),
-                                       il.const(1, 3))))
-    return insn.length
-
-def _lift_SRA(insn, addr, il):
-    il.append(il.set_reg(4, _reg_name(insn, "ar"),
-                         il.arith_shift_right(4,
-                                              il.reg(4, _reg_name(insn, "at")),
-                                              il.reg(1, "sar"))))
-    return insn.length
-
-def _lift_ISYNC(insn, addr, il):
-    il.append(il.intrinsic([], "isync", []))
-    return insn.length
-def _lift_DSYNC(insn, addr, il):
-    il.append(il.intrinsic([], "dsync", []))
-    return insn.length
-def _lift_RSYNC(insn, addr, il):
-    il.append(il.intrinsic([], "rsync", []))
-    return insn.length
-def _lift_ESYNC(insn, addr, il):
-    il.append(il.intrinsic([], "esync", []))
-    return insn.length
+##############################################
+############# Exception Option ###############
+##############################################
 
 def _lift_ILL(insn, addr, il):
     # TODO: pick a proper trap constant
@@ -1361,61 +1425,17 @@ def _lift_ILL(insn, addr, il):
     return insn.length
 _lift_ILL_N = _lift_ILL
 
-def _lift_MUL16S(insn, addr, il):
-    il.append(
-        il.set_reg(4, _reg_name(insn, "ar"),
-                   il.mult(4,
-                           il.sign_extend(4,
-                               il.low_part(2,
-                                           il.reg(4, _reg_name(insn, "as")))),
-                           il.sign_extend(4,
-                               il.low_part(2,
-                                           il.reg(4, _reg_name(insn, "at"))))
-                           )))
+def _lift_SYSCALL(insn, addr, il):
+    il.append(il.system_call())
     return insn.length
 
-def _lift_MUL16U(insn, addr, il):
-    il.append(
-        il.set_reg(4, _reg_name(insn, "ar"),
-                   il.mult(4,
-                           il.zero_extend(4,
-                               il.low_part(2,
-                                           il.reg(4, _reg_name(insn, "as")))),
-                           il.zero_extend(4,
-                               il.low_part(2,
-                                           il.reg(4, _reg_name(insn, "at"))))
-                           )))
+def _lift_EXCW(insn, addr, il):
+    il.append(il.intrinsic([], "exception_wait", []))
     return insn.length
 
+# TODO: Returns from exceptions
+# def _lift_RFDE
+# def _lift_RFE
+# def _lift_RFUE
 
 
-def _lift_RSR(insn, addr, il):
-    sr = insn._special_reg_map.get(insn.sr)
-    if not sr:
-        il.append(il.unimplemented())
-    else:
-        il.append( il.set_reg(4, _reg_name(insn, "at"),  il.reg(4, sr[0].lower())))
-
-    return insn.length
-
-def _lift_WSR(insn, addr, il):
-    sr = insn._special_reg_map.get(insn.sr)
-    if not sr:
-        il.append(il.unimplemented())
-    else:
-        il.append( il.set_reg(4, sr[0].lower(),  il.reg(4, _reg_name(insn, "at"))))
-    return insn.length
-
-def _lift_XSR(insn, addr, il):
-    sr = insn._special_reg_map.get(insn.sr)
-    if not sr:
-        il.append(il.unimplemented())
-    else:
-        temp = LLIL_TEMP(0)
-        sr_reg = sr[0].lower()
-        at_reg = _reg_name(insn, "at")
-
-        il.append(il.set_reg(4, temp, il.reg(4, sr_reg)))
-        il.append(il.set_reg(4, sr_reg, il.reg(4, at_reg)))
-        il.append(il.set_reg(4, at_reg, il.reg(4, temp)))
-    return insn.length
