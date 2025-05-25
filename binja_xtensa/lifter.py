@@ -904,8 +904,9 @@ def _lift_LOOP_simple(insn, addr, il):
 
 def _lift_loop_instruction(insn, addr, il, data, loop_type):
     # If we don't have enough data in insn, we can't lift the LOOP instruction
+    # We need the whole block of the loop and the final instruction to be in the data
     # Require Function level lifting --> To be added in future Binja version
-    if len(data) < insn.imm8 + 3:
+    if len(data) < insn.imm8 + 5:
         il.append(il.unimplemented())
         return insn.length
     
