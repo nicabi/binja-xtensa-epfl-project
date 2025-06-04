@@ -33,9 +33,13 @@ def _reg_name(insn, fmt, offset=0):
         if val is None:
             raise Exception("Could not find property " + fmt)
         return "f" + str(val+offset)
+    elif fmt.startswith("epc"):
+        rest = fmt[3:]
+        val = getattr(insn, rest, None)
+        if val is None:
+            raise Exception("Could not find property " + fmt)
+        return "epc" + str(val+offset)
     else:
-        # When we lift boolean instructions, we'll need to add support for "f"
-        # registers, etc.
         raise Exception("Unimplemented reg name fmt: " + fmt)
 
 def lift(insn, addr, il, data=None):
@@ -422,7 +426,9 @@ def _lift_EXTUI(insn, addr, il):
     il.append(il.set_reg(4, _reg_name(insn, "ar"), anded))
     return insn.length
 
-# TODO: def EXTW
+def _lift_EXTW(insn, addr, il):
+    il.append(il.intrinsic([], "extw", []))
+    return insn.length
 
 def _lift_J(insn, addr, il):
     il.append(il.jump(il.const(4, insn.target_offset(addr))))
@@ -550,13 +556,23 @@ def _lift_SRLI(insn, addr, il):
                                           il.const(4, insn.s))))
     return insn.length
 
-# TODO: def _lift_SSA8B 
 def _lift_SSA8L(insn, addr, il):
-    il.append(il.set_reg(1, "sar",
-                         # Low part is not strictly correct... but good enough
-                         il.shift_left(1,
-                                       il.low_part(1, il.reg(4, _reg_name(insn, "as"))),
-                                       il.const(1, 3))))
+    # Get last 2 bits of as
+    low_part = il.and_expr(1,
+        il.low_part(1, il.reg(4, _reg_name(insn, "as"))),
+        il.const(1,3)
+    ) 
+    result = il.shift_left(1, low_part, il.const(1, 3))
+    il.append(il.set_reg(1, "sar", result))
+    return insn.length
+
+def _lift_SSA8B(insn, addr, il):
+    low_part = il.and_expr(1,
+        il.low_part(1, il.reg(4, _reg_name(insn, "as"))),
+        il.const(1,3)
+    ) 
+    result = il.sub(1, il.const(1, 32), il.shift_left(1, low_part, il.const(1, 3)))
+    il.append(il.set_reg(1, "sar", result))
     return insn.length
 
 def _lift_SSAI(insn, addr, il):
@@ -733,6 +749,29 @@ def _lift_XSR(insn, addr, il):
         il.append(il.set_reg(4, at_reg, il.reg(4, temp)))
     return insn.length
 
+##############################################
+# User register instructions: WUR, RUR
+
+def _lift_RUR(insn, addr, il):
+    sr = insn._user_reg_map.get(insn.sr)
+    if not sr:
+        il.append(il.unimplemented())
+    else:
+        il.append( il.set_reg(4, _reg_name(insn, "at"),  il.reg(4, sr[0].lower())))
+
+    return insn.length
+
+def _lift_WUR(insn, addr, il):
+    sr = insn._user_reg_map.get(insn.sr)
+    if not sr:
+        il.append(il.unimplemented())
+    else:
+        il.append( il.set_reg(4, sr[0].lower(),  il.reg(4, _reg_name(insn, "at"))))
+    return insn.length
+
+# TODO: RER
+# TODO: WER
+
 ###############################################
 ### Core Architecture calling instructions ####
 ########## Windowed Register Option ###########
@@ -791,24 +830,21 @@ _lift_RETW = _lift_RET
 _lift_RETW_N = _lift_RET
 _lift_ENTRY = _lift_NOP
 
-def _lift_L32E(insn, addr, il):
-    va = il.add(4,
-                il.reg(4, _reg_name(insn, "as")),
-                il.const(4, insn.inline0(addr)))
-    il.append(il.set_reg(4, _reg_name(insn, "at"),
-                         il.load(4, va)))
+def _lift_RFWO(insn, addr, il):
+    dest = il.reg(4, 'epc1')
+    il.append(il.ret(dest))
     return insn.length
+_lift_RFWU = _lift_RFWO
 
+# MOVSP behaves the same as MOV.N, because we do not keep track of 
+# WindowStart when implementing windowed registers
+# Because of this, we also don't need to implement ROTW
+# We also do not implement the load and store used specifically for window exceptions
+_lift_MOVSP = _lift_MOV_N
 
-def _lift_L32E_N(insn, addr, il):
-    _as = il.reg(4, _reg_name(insn, "as"))
-    imm = il.const(4, insn.inline0(addr))
-    va = il.add(4, _as, imm)
-    il.append(il.set_reg(4, _reg_name(insn, "at"),
-                            il.load(4, va)))
-    return insn.length
-
-# def _lift_RFWO
+# TODO: def _lift_ROTW
+# TODO: def _lift_S32E
+# TODO: def _lift_L32E
 
 ##############################################
 ####### 16-bit Integer Multiply Option #######
@@ -852,8 +888,22 @@ def _lift_MULL(insn, addr, il):
                            il.reg(4, _reg_name(insn, "at")))))
     return insn.length
 
-# def MULSH
-# def MULUH
+def _lift_MULSH(insn, addr, il):
+    temp = il.mult_double_prec_signed(4, 
+                                      il.reg(4, _reg_name(insn, "as")), 
+                                      il.reg(4, _reg_name(insn, "as")))
+    # Get the most significant 32 bits by shifting to the right
+    result = il.logical_shift_right(4, temp, il.const(1, 32))
+    il.append(il.set_reg(4, _reg_name(insn, "ar"), result))
+    return insn.length
+def _lift_MULUH(insn, addr, il):
+    temp = il.mult_double_prec_unsigned(4, 
+                                        il.reg(4, _reg_name(insn, "as")), 
+                                        il.reg(4, _reg_name(insn, "as")))
+    # Get the most significant 32 bits by shifting to the right
+    result = il.logical_shift_right(4, temp, il.const(1, 32))
+    il.append(il.set_reg(4, _reg_name(insn, "ar"), result))
+    return insn.length
 
 ###############################################
 ######### 32-bit Integer Divide Option ########
@@ -1081,7 +1131,7 @@ def _lift_anyall(insn, addr, il, op):
     offset = int(op[-1]) # get the size of the instruction (4 or 8)
     
     temp = s_reg
-    for idx in range(s+1, s+offset):
+    for idx in range(s+1, min(s+offset, 16)):
         if op[:-1] == "ALL":
             temp = il.and_expr(1, temp, il.reg(1, "b" + str(idx)))
         elif op[:-1] == "ANY":
@@ -1152,8 +1202,8 @@ def _lift_MOVFT(insn, addr, il, bit, float):
     t = il.reg(1, "b" + str(_reg_name(insn, "bt")))
     cond = il.compare_equal(1,  t, il.const(1, bit))
     return _lift_cmov(cond, insn, addr, il, float)
-_lift_MOVF_S = lambda insn, addr, il: _lift_MOVFT(insn, addr, il, 0, False)
-_lift_MOVT_S = lambda insn, addr, il: _lift_MOVFT(insn, addr, il, 1, False)
+_lift_MOVF = lambda insn, addr, il: _lift_MOVFT(insn, addr, il, 0, False)
+_lift_MOVT = lambda insn, addr, il: _lift_MOVFT(insn, addr, il, 1, False)
 
 #########################################################
 #### Miscellaneous Operations Option (Section 4.3.8) ####
@@ -1232,10 +1282,33 @@ def _lift_CLAMPS(insn, addr, il):
     il.mark_label(end_label)
 
     return insn.length
-#TODO: def _lift_NSA(insn, addr, il):
-#TODO: def _lift_NSAU(insn, addr, il):
-#TODO: def _lift_SEXT(insn, addr, il):
 
+def _lift_SEXT(insn, addr, il):
+    reg_as = il.reg(4, _reg_name(insn, "as"))
+    reg_ar = il.reg(4, _reg_name(insn, "ar"))
+    b = insn.inline0(addr)
+
+    # To sign extend for a specific bit, we shift to the left until we reach
+    # most significant bit, then use arightmetic right shift
+    left_shifted = il.shift_left(4, reg_as, il.const(4, 31-b))
+    result = il.arith_shift_right(4, left_shifted, il.const(4, 31-b))
+    il.append(il.set_reg(4, _reg_name(insn, "at"),  result))
+    return insn.length
+
+# Placeholders for instructions NSA and NSAU for readability in code, 
+# as implementing this in binja would result in a very convoluted code, 
+# because it is not possible to access individual bits of a register
+# TODO: get rid of placeholders and implement it yourself
+def _lift_NSA(insn, addr, il):
+    reg_as = il.reg(4, _reg_name(insn, "as"))
+    reg_at = il.reg(4, _reg_name(insn, "at"))
+    il.append(il.intrinsic([reg_at], "normalization_shift_amount", [reg_as]))
+    return insn.length
+def _lift_NSAU(insn, addr, il):
+    reg_as = il.reg(4, _reg_name(insn, "as"))
+    reg_at = il.reg(4, _reg_name(insn, "at"))
+    il.append(il.intrinsic([reg_at], "normalization_shift_amount_unsigned", [reg_as]))
+    return insn.length
 
 ##############################################
 ################ LOOP MODULE #################
@@ -1348,10 +1421,123 @@ def _lift_LOOPGTZ(insn, addr, il, data):
     return _lift_loop_instruction(insn, addr, il, data, "LOOPGTZ")
 
 ##############################################
-############# Data Cache Option ##############
+############# Exception Option ###############
 ##############################################
 
+def _lift_ILL(insn, addr, il):
+    # TODO: pick a proper trap constant
+    il.append(il.trap(0))
+    return insn.length
+_lift_ILL_N = _lift_ILL
+
+def _lift_SYSCALL(insn, addr, il):
+    il.append(il.system_call())
+    return insn.length
+
+def _lift_EXCW(insn, addr, il):
+    il.append(il.intrinsic([], "exception_wait", []))
+    return insn.length
+
+
+def _lift_RFE(insn, addr, il):
+    dest = il.reg(4, 'epc1')
+    il.append(il.ret(dest))
+    return insn.length
+_lift_RFUE = _lift_RFE
+_lift_RFDE = _lift_RFE # TODO: include NDEPC as register (?) and use DEPC as destination if 1
+
+##############################################
+###### High-Priority Interrupt Option  #######
+############ Interrupt Option  ###############
+##############################################
+
+def _lift_RFI(insn, addr, il):
+    epc_level = il.reg(4, _reg_name(insn, "epcs"))
+    il.append( il.set_reg(4, "ps",  epc_level))
+    il.append(il.ret(epc_level))
+    return insn.length
+
+def _lift_RSIL(insn, addr, il):
+    ps_reg = il.reg(4, "ps")
+    il.append(il.set_reg(4, _reg_name(insn, "at"),  ps_reg))
+    # TODO: ps.INTLEVEL = as
+    return insn.length
+
+# TODO: def _lift_WAITI
+
+############################################################
+######### Memory ECC/Parity Option #########################
+############################################################
+def _lift_RFME(insn, addr, il):
+    dest = il.reg(4, 'mepc')
+    il.append( il.set_reg(4, "ps",  il.reg(4, "meps")))
+    # TODO: add MESR.MEME=0
+    il.append(il.ret(dest))
+    return insn.length
+
+
+############################################################
+######### MAC16 Option #####################################
+############################################################
+# TODO: LDDEC
+# TODO: LDINC
+# TODO: MUL.AA.*
+# TODO: MUL.DA.*
+# TODO: MUL.DD.*
+# TODO: MULA.AA.*
+# TODO: MULA.AD.*
+# TODO: MULA.DA.*
+# TODO: MULA.DA.*.LDDEC
+# TODO: MULA.DA.*.LDINC
+# TODO: MULA.DD.*
+# TODO: MULA.DD.*.LDDEC
+# TODO: MULA.DD.*.LDINC
+# TODO: MULS.AA.*
+# TODO: MULS.AD.*
+# TODO: MULS.DA.*
+# TODO: MULS.DD.*
+# TODO: UMUL.AA.*
+
+##############################################
+#### Multiprocessor Synchronization Option ###
+##############################################
+# TODO: def _lift_L32AI
+# TODO: def _lift_S32RI
+
+
+
+#############################################################################
+# Only instrinsics lifter instructions below
+# These are instructions which deal with internal structures, such as 
+# TLB and cache read, write, invalidate etc., so we just make them look
+# like intrinsics call, as reproducing the exact behavior in the decompiler
+# would be more confusing in practice.
+# Below are some helper functions to make the code cleaner
+#############################################################################
+
+# Intrinsics of the form: function(index, value)
+# Usually store some value at address at an index in a cache/TLB
+def _lift_intrinsic_2param(insn, il, intrinsic):
+    reg_as = il.reg(4, _reg_name(insn, "as"))
+    reg_at = il.reg(4, _reg_name(insn, "at"))
+    il.append(il.intrinsic([], intrinsic, [reg_as, reg_at]))
+    return insn.length
+# Intrinsics of the form: function(index)
+# Usually load a value from index in a cache/TLB
+def _lift_intrinsic_1param(insn, il, intrinsic):
+    reg_as = il.reg(4, _reg_name(insn, "as"))
+    il.append(il.intrinsic([], intrinsic, [reg_as]))
+    return insn.length
+# Intrinsics of the form: result=function(index)
+# Usually load a value from index in a cache/TLB and store it in result
+def _lift_intrinsic_1param_1result(insn, il, intrinsic):
+    reg_as = il.reg(4, _reg_name(insn, "as"))
+    reg_at = il.reg(4, _reg_name(insn, "at"))
+    il.append(il.intrinsic([reg_at], intrinsic, [reg_as]))
+    return insn.length
+
 # Helper function to lift all data and instruction cache related option non-test instructions
+# Here we also encode the virtual address according to the Reference Manual
 def _lift_cache_intrinsic_imm8(insn, il, intrinsic):
     va = il.add(4, il.reg(4, _reg_name(insn, "as")), il.const(4, insn.imm8 << 2))
     il.append(il.intrinsic([], intrinsic, [va]))
@@ -1360,6 +1546,37 @@ def _lift_cache_intrinsic_imm4(insn, il, intrinsic):
     va = il.add(4, il.reg(4, _reg_name(insn, "as")), il.const(4, insn.imm4 << 4))
     il.append(il.intrinsic([], intrinsic, [va]))
     return insn.length
+
+##############################################
+######### Conditional Store Option ###########
+##############################################
+def _lift_S32C1I(insn, addr, il):
+    reg_at = il.reg(4, _reg_name(insn, "at"))
+    reg_scompare = il.reg(4, "scompare1")
+    va = il.add(4, il.reg(4, _reg_name(insn, "as")), il.const(4, insn.imm8 << 2))
+    il.append(il.intrinsic([reg_at], "store_32bit_compare_conditional", [va, reg_at, reg_scompare]))
+    return insn.length
+
+##############################################
+################ Debug Option ################
+##############################################
+
+def _lift_BREAK(insn, addr, il):
+    il.append(il.intrinsic([], "debug_break", []))
+    return insn.length
+_lift_BREAK_N = _lift_BREAK
+
+# Used only in On-Chip Debug Mode
+def _lift_RFDD(insn, addr, il):
+    il.append(il.intrinsic([], "return_from_debug_and_dispatch", []))
+    return insn.length
+def _lift_RFDO(insn, addr, il):
+    il.append(il.intrinsic([], "return_from_debug_operation", []))
+    return insn.length
+
+##############################################
+############# Data Cache Option ##############
+##############################################
 
 _lift_DHI   = lambda insn, addr, il: _lift_cache_intrinsic_imm8(insn, il, "data_cache_hit_invalidate")
 _lift_DHWB  = lambda insn, addr, il: _lift_cache_intrinsic_imm8(insn, il, "data_cache_hit_writeback")
@@ -1382,6 +1599,13 @@ _lift_DHU  = lambda insn, addr, il: _lift_cache_intrinsic_imm4(insn, il, "data_c
 _lift_DIU  = lambda insn, addr, il: _lift_cache_intrinsic_imm4(insn, il, "data_cache_index_unlock")
 _lift_DPFL = lambda insn, addr, il: _lift_cache_intrinsic_imm4(insn, il, "data_cache_prefetch_and_lock")
 
+############################################################
+######### Data Cache Test Option ###########################
+############################################################
+
+_lift_LDCT = lambda insn, addr, il: _lift_intrinsic_1param_1result(insn, il, "load_data_cache_tag")
+_lift_SICT = lambda insn, addr, il: _lift_intrinsic_2param(insn, il, "store_data_cache_tag")
+
 ##############################################
 ########## Instruction Cache Option ##########
 ##############################################
@@ -1398,44 +1622,33 @@ _lift_IHU  = lambda insn, addr, il: _lift_cache_intrinsic_imm4(insn, il, "instru
 _lift_IIU  = lambda insn, addr, il: _lift_cache_intrinsic_imm4(insn, il, "instruction_cache_index_unlock")
 _lift_IPFL = lambda insn, addr, il: _lift_cache_intrinsic_imm4(insn, il, "instruction_cache_prefetch_and_lock")
 
-##############################################
-################ Debug Option ################
-##############################################
+############################################################
+######### Instruction Cache Test Option ####################
+############################################################
 
-def _lift_BREAK(insn, addr, il):
-    il.append(il.intrinsic([], "debug_break", []))
-    return insn.length
-_lift_BREAK_N = _lift_BREAK
-
-# Used only in On-Chip Debug Mode
-def _lift_RFDD(insn, addr, il):
-    il.append(il.intrinsic([], "return_from_debug_and_dispatch", []))
-    return insn.length
-def _lift_RFDO(insn, addr, il):
-    il.append(il.intrinsic([], "return_from_debug_operation", []))
-    return insn.length
+_lift_LICT = lambda insn, addr, il: _lift_intrinsic_1param_1result(insn, il, "load_instruction_cache_tag")
+_lift_LICW = lambda insn, addr, il: _lift_intrinsic_1param_1result(insn, il, "load_instruction_cache_word")
+_lift_SICT = lambda insn, addr, il: _lift_intrinsic_2param(insn, il, "store_instruction_cache_tag")
+_lift_SICW = lambda insn, addr, il: _lift_intrinsic_2param(insn, il, "store_instruction_cache_word")
 
 ##############################################
-############# Exception Option ###############
+########### Region Protection Option #########
 ##############################################
 
-def _lift_ILL(insn, addr, il):
-    # TODO: pick a proper trap constant
-    il.append(il.trap(0))
-    return insn.length
-_lift_ILL_N = _lift_ILL
+_lift_IDTLB = lambda insn, addr, il: _lift_intrinsic_1param(insn, il, "invalidate_data_TLB_entry")
+_lift_IITLB = lambda insn, addr, il: _lift_intrinsic_1param(insn, il, "invalidate_instruciton_TLB_entry")
 
-def _lift_SYSCALL(insn, addr, il):
-    il.append(il.system_call())
-    return insn.length
+##############################################
+########## Region Translation Option #########
+################### MMU Option ###############
+##############################################
 
-def _lift_EXCW(insn, addr, il):
-    il.append(il.intrinsic([], "exception_wait", []))
-    return insn.length
-
-# TODO: Returns from exceptions
-# def _lift_RFDE
-# def _lift_RFE
-# def _lift_RFUE
-
+_lift_PDTLB = lambda insn, addr, il: _lift_intrinsic_1param_1result(insn, il, "probe_data_TLB")
+_lift_PITLB = lambda insn, addr, il: _lift_intrinsic_1param_1result(insn, il, "probe_instruction_TLB")
+_lift_RDTLB0 = lambda insn, addr, il: _lift_intrinsic_1param_1result(insn, il, "read_data_TLB_entry_virtual")
+_lift_RDTLB1 = lambda insn, addr, il: _lift_intrinsic_1param_1result(insn, il, "read_data_TLB_entry_translation")
+_lift_RITLB0 = lambda insn, addr, il: _lift_intrinsic_1param_1result(insn, il, "read_instruction_TLB_entry_virtual")
+_lift_RITLB1 = lambda insn, addr, il: _lift_intrinsic_1param_1result(insn, il, "read_instruction_TLB_entry_translation")
+_lift_WDTLB = lambda insn, addr, il: _lift_intrinsic_1param_1result(insn, il, "write_data_TLB_entry")
+_lift_WITLB = lambda insn, addr, il: _lift_intrinsic_1param_1result(insn, il, "write_instruction_TLB_entry")
 

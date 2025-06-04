@@ -1,88 +1,290 @@
-# New, Floating-Point operations
-# TODO - Test
-ABS_S
-NEG_S
-ADD_S
-SUB_S
-MADD_S
-MSUB_S
-MUL_S
+############################################################
+######### Code Density Option ##############################
+############################################################
+ADD.N
+ADDI.N
+BEQZ.N
+BNEZ.N
+ILL.N
+L32I.N
+MOV.N
+NOP.N
+RET.N
+RETW.N
+S32I.N
 
-# TODO - Test
-CEIL_S
-FLOAT_S
-UFLOAT_S
-FLOOR_S
-TRUNC_S
-UTRUNC_S
-ROUND_S
+############################################################
+######### Loop Option ######################################
+############################################################
+LOOP
+LOOPNEZ
+LOOPGTZ
 
-# TODO - Test
-MOV_S
-MOVNEZ_S
-MOVEQZ_S
-MOVGEZ_S
-MOVLTZ_S
-MOVT_S
-MOVF_S
-RFR
-WFR
+############################################################
+######### 16-bit Integer Multiply Option ###################
+############################################################
+MUL16U
+MUL16S
 
-OEQ_S
-OLE_S
-OLT_S
-UEQ_S
-ULT_S
-ULE_S
-UN_S
+############################################################
+######### 32-bit Integer Multiply Option ###################
+############################################################
+MULL
+MULSH
+MULUH
+
+############################################################
+######### 32-bit Integer Divide Option #####################
+############################################################
+QUOS
+QUOU
+REMS
+REMU
+
+############################################################
+######### MAC16 Optzion #####################################
+############################################################
+LDDEC - TODO
+LDINC - TODO
+MUL.AA.* - TODO
+MUL.DA.* - TODO
+MUL.DD.* - TODO
+MULA.AA.* - TODO
+MULA.AD.* - TODO
+MULA.DA.* - TODO
+MULA.DA.*.LDDEC - TODO
+MULA.DA.*.LDINC - TODO
+MULA.DD.* - TODO
+MULA.DD.*.LDDEC - TODO
+MULA.DD.*.LDINC - TODO
+MULS.AA.* - TODO
+MULS.AD.* - TODO
+MULS.DA.* - TODO
+MULS.DD.* - TODO
+UMUL.AA.* - TODO
+
+############################################################
+######### Miscellaneous Operations Option ##################
+############################################################
+CLAMPS
+MAX
+MAXU
+MIN
+MINU
+SEXT
+NSA - Placeholder - TODO
+NSAU - Placeholder - TODO
+
+############################################################
+######### Boolean Option ###################################
+############################################################
+ALL4
+ALL8
+ANDB
+ANDBC
+ANY4
+ANY8
+BF
+BT
+MOVF
+MOVF.S
+MOVT
+MOVT.S
+ORB
+ORBC
+XORB
+
+############################################################
+######### Floating-Point Coprocessor Option ################
+############################################################
+ABS.S
+ADD.S
+CEIL.S
+FLOAT.S
+FLOOR.S
 LSI
 LSIU
 LSX
 LSXU
+MADD.S
+MOV.S
+MOVEQZ.S
+MOVF.S
+MOVGEZ.S
+MOVLTZ.S
+MOVNEZ.S
+MOVT.S
+MSUB.S
+MUL.S
+NEG.S
+OEQ.S
+OLE.S
+OLT.S
+RFR
+ROUND.S
 SSI
 SSIU
 SSX
 SSXU
+SUB.S
+TRUNC.S
+UEQ.S
+UFLOAT.S
+ULE.S
+ULT.S
+UN.S
+UTRUNC.S
+WFR
 
-# New, Boolean operations
-ANDB  - test
-ANDBC - test
-ORB  - test
-ORBC - test
-XORB - test
+############################################################
+######### Multiprocessor Synchronization Option ############
+############################################################
+L32AI - TODO
+S32RI - TODO
 
-ALL4 - test
-ALL8 - test
-ANY4  - test
-ANY8  - test
+############################################################
+######### Conditional Store Option #########################
+############################################################
+S32C1I
 
-BF - test
-BT - test
-MOVF - test
-MOVT - test
+############################################################
+######### Exception Option #################################
+############################################################
+EXCW
+ILL
+ILL.N
+RFDE
+RFUE
+RFE
+SYSCALL
 
-# Checked myself
+############################################################
+######### Interrupt Option #################################
+############################################################
+RFI
+RSIL
+WAITI - TODO
+
+############################################################
+######### Instruction Cache Option #########################
+############################################################
+IHI
+III
+IPF
+
+############################################################
+######### Instruction Cache Test Option ####################
+############################################################
+LICT
+LICW
+SICT
+SICW
+
+############################################################
+######### Instruction Cache Index Lock Option ##############
+############################################################
+IHU
+IIU
+IPFL
+
+############################################################
+######### Data Cache Option ################################
+############################################################
+DHI
+DHWB
+DHWBI
+DII
+DIWB
+DIWBI
+DPFR
+DPFRO
+DPFW
+DPFWO
+
+############################################################
+######### Data Cache Test Option ###########################
+############################################################
+LDCT
+SDCT
+
+############################################################
+######### Data Cache Index Lock Option #####################
+############################################################
+DHU
+DIU
+DPFL
+
+############################################################
+######### Region Protection / Translation / MMU Option #####
+############################################################
+IDTLB
+ITTLB
+PDTLB
+PITLB
+RDTLB0
+RDTLB1
+RITLB0
+RITLB1
+WDTLB
+WITLB
+
+
+############################################################
+######### Windowed Register Option #########################
+############################################################
+CALL4
+CALL8
+CALL12
+CALLX4
+CALLX8
+CALLX12
+ENTRY
+RETW
+RETW.N
+RFWO
+RFWU
+ROTW - TODO
+MOVSP
+L32E - TODO
+S32E - TODO
+
+############################################################
+######### Memory ECC/Parity Option #########################
+############################################################
+RFME
+
+
+############################################################
+######### Debug Option #####################################
+############################################################
+BREAK
+BREAK.N
+BREAK.N
+RFDD
+RFDO
+
+############################################################
+######### Core ISA (always present) ########################
+############################################################
+ABS
 ADD
-ADD.N
 ADDI
-ADDI.N
 ADDMI
 ADDX2
 ADDX4
 ADDX8
-AND    
+AND
 BALL
 BANY
 BBC
 BBCI
-BBCI_L - New, same as BBCI
+BBCI.L
 BBS
 BBSI
-BBSI_L
+BBSI.L
 BEQ
 BEQI
 BEQZ
-BEQZ_N
 BGE
 BGEI
 BGEU
@@ -97,58 +299,35 @@ BNALL
 BNE
 BNEI
 BNEZ
-BNEZ_N
 BNONE
 CALL0
-CALL4 - TODO
-CALL8 - TODO
-CALL12 - TODO
 CALLX0
-CALLX4 - TODO
-CALLX8 - TODO
-CALLX12 - TODO
-CEIL_S - TODO
-# From ChatGPT
-CALL0
-CALLX0
+DSYNC
+ESYNC
 EXTUI
-ILL
 ISYNC
 J
 JX
-L16SI
-L16UI
-L32I
-L32I_N
-L32R
 L8UI
-MEMW
-MOV
-MOV_N
+L16UI
+L16SI
+L32I
+L32R
 MOVEQZ
-MOVF
-MOVFT
 MOVGEZ
 MOVI
-MOVI_N
+MOVI.N
 MOVLTZ
 MOVNEZ
-MOVT
-MUL16S
-MUL16U
-MULL
 NEG
 NOP
-NOP_N
 OR
-ORB
-ORBC
 RET
-RET_N
+RSR
+RSYNC
+S8I
 S16I
 S32I
-S32I_N
-S8I
 SLL
 SLLI
 SRA
@@ -156,7 +335,6 @@ SRAI
 SRC
 SRL
 SRLI
-SSA8L
 SSAI
 SSL
 SSR
@@ -164,6 +342,18 @@ SUB
 SUBX2
 SUBX4
 SUBX8
-SYSCALL
+WSR
 XOR
-XORB
+XSR
+EXTW
+MEMW
+WUR
+RUR
+RER - TODO
+WER - TODO
+SSA8B
+SSA8L
+
+# Skipped instruction, as not preesent in normal Hardware
+SIMCALL
+R
