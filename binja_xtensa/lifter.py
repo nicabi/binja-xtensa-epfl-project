@@ -1286,7 +1286,7 @@ def _lift_CLAMPS(insn, addr, il):
 def _lift_SEXT(insn, addr, il):
     reg_as = il.reg(4, _reg_name(insn, "as"))
     reg_ar = il.reg(4, _reg_name(insn, "ar"))
-    b = il.inline0(addr)
+    b = insn.inline0(addr)
 
     # To sign extend for a specific bit, we shift to the left until we reach
     # most significant bit, then use arightmetic right shift
@@ -1465,7 +1465,7 @@ def _lift_RFI(insn, addr, il):
     return insn.length
 
 def _lift_RSIL(insn, addr, il):
-    ps_reg = il.reg(4, _reg_name(insn, "ps"))
+    ps_reg = il.reg(4, "ps")
     il.append(il.set_reg(4, _reg_name(insn, "at"),  ps_reg))
     # TODO: ps.INTLEVEL = as
     return insn.length
