@@ -206,8 +206,11 @@ def tokens_to_text(token_list):
         assert tok.value is not None
     return ''.join([tok.text for tok in token_list])
 
-def _disassemble_RSR(insn, addr):
-    mnem = insn.mnem + "." + insn.get_sr_name()
+def _disassemble_user_special_register(insn, addr, special=True):
+    if special:
+        mnem = insn.mnem + "." + insn.get_sr_name()
+    else:
+        mnem = insn.mnem + "." + insn.get_ur_name()
     tokens = []
     tokens.append(InstructionTextToken(InstructionTextTokenType.InstructionToken,
                                      mnem))
@@ -226,7 +229,11 @@ def _disassemble_RSR(insn, addr):
         tokens.append(token_func(insn, addr))
     return tokens
 
+_disassemble_RSR = lambda insn, addr: _disassemble_user_special_register(insn, addr, True)
 _disassemble_WSR = _disassemble_XSR = _disassemble_RSR
+
+_disassemble_RUR = lambda insn, addr: _disassemble_user_special_register(insn, addr, False)
+_disassemble_WUR = _disassemble_RUR
 
 # As I mentioned in the decoding code, instruction formats aren't too useful in
 # Xtensa... but we do fall back to these for a few simple instructions. It's
@@ -359,6 +366,7 @@ _disassemble_L32I_N = _dis("at as inline0",
 _disassemble_L32R = _dis("at mem_offset")
 
 _disassemble_LDCT = _dis("at as")
+_disassemble_SDCT = _dis("at as")
 
 # MAC16 option  - TODO - Test when implementing module
 _disassemble_LDDEC = _dis("mw as")
@@ -366,12 +374,13 @@ _disassemble_LDINC = _dis("mw as")
 
 _disassemble_LICT = _dis("at as")
 _disassemble_LICW = _dis("at as")
+_disassemble_SICT = _dis("at as")
+_disassemble_SICW = _dis("at as")
 
 _disassemble_LOOP = _dis("as imm8")
 _disassemble_LOOPGTZ = _dis("as imm8")
 _disassemble_LOOPNEZ = _dis("as imm8")
 
-# Float options - TODO - test
 _disassemble_MULL = _dis("ar as at")
 
 _disassemble_MEMW = _dis("")
@@ -401,6 +410,8 @@ _disassemble_RETW     = _dis("")
 _disassemble_RETW_N   = _dis("")
 _disassemble_RFDD     = _dis("")
 _disassemble_RFDE     = _dis("")
+_disassemble_RFUE     = _dis("")
+_disassemble_RFME     = _dis("")
 _disassemble_RFDO     = _dis("")
 _disassemble_RFWO     = _dis("")
 _disassemble_RFWU     = _dis("")
@@ -438,8 +449,6 @@ _disassemble_WER      = _dis("at as")
 _disassemble_WITLB    = _dis("at as")
 _disassemble_WER      = _dis("at as")
 _disassemble_XORB     = _dis("br bs bt")
-
-# _disassemble_WUR = _dis("at sr") # sr not yet handled
 
 # Dissassembling all Floating-Point Coprocessor Option 
 _disassemble_ABS_S    = _dis("fr fs")
