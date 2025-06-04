@@ -286,6 +286,13 @@ class Instruction:
         enc = getattr(self, comp)
         return self._b4constu_vals[enc]
 
+    # Table 5–187. Numerical List of User Registers
+    # This allows us to render "RUR.REGNAME" versus RUR at, <thing>
+    _user_reg_map = {
+        231: ("THREADPTR",   4),
+        232: ("FCR",         4),
+        233: ("FSR",         4),
+    }
     # Table 5-128 Numerical List of Special Registers
     # This allows us to render "RSR.REGNAME" versus RSR at, <thing>
     _special_reg_map = {
@@ -373,6 +380,14 @@ class Instruction:
             return None
         try:
             return self._special_reg_map[self.sr][0]
+        except KeyError:
+            return str(self.sr)
+
+    def get_ur_name(self):
+        if self.mnem not in ["RUR", "WUR"]:
+            return None
+        try:
+            return self._user_reg_map[self.sr][0]
         except KeyError:
             return str(self.sr)
 
@@ -813,7 +828,8 @@ class Instruction:
 
     _decode_RSR = mnem("RSR", "RSR")
     _decode_WSR = mnem("WSR", "RSR")
-    _decode_SEXT = mnem("SEXT", "RRR")
+    _decode_SEXT = mnem("SEXT", "RRR",
+                        inline0=lambda insn, _: insn.t + 7)
     _decode_CLAMPS = mnem("CLAMPS", "RRR")
     _decode_MIN = mnem("MIN", "RRR")
     _decode_MAX = mnem("MAX", "RRR")

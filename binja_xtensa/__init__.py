@@ -107,6 +107,11 @@ class XtensaLE(Architecture):
     for k,val in Instruction._special_reg_map.items():
         regs[val[0].lower()] = RegisterInfo(val[0].lower(), val[1], 0)
 
+    # User Registers
+    regs["threadptr"] = RegisterInfo(f"threadptr", 4, 0)
+    regs["fcr"] = RegisterInfo(f"fcr", 4, 0)
+    regs["fsr"] = RegisterInfo(f"fsr", 4, 0)
+
     # Do we have flags?
     flags = {}
     flag_roles = {}
@@ -121,6 +126,7 @@ class XtensaLE(Architecture):
         "dsync": IntrinsicInfo([], []),
         "esync": IntrinsicInfo([], []),
         "rsync": IntrinsicInfo([], []),
+        "extw": IntrinsicInfo([], []),
         
         # Debug Option
         "debug_break": IntrinsicInfo([], []),
@@ -156,6 +162,39 @@ class XtensaLE(Architecture):
         "exception_wait": IntrinsicInfo([], []),
         "return_from_debug_and_dispatch": IntrinsicInfo([], []),
         "return_from_debug_operation": IntrinsicInfo([], []),    
+    
+        # Region Protection option
+        "invalidate_data_TLB_entry": IntrinsicInfo([], []),
+        "invalidate_instruciton_TLB_entry": IntrinsicInfo([], []),
+    
+        # Region Translation Option (page 156)
+        # MMU Option (page 158)
+        "probe_data_TLB": IntrinsicInfo([], []),
+        "probe_instruction_TLB": IntrinsicInfo([], []),
+        "read_data_TLB_entry_virtual": IntrinsicInfo([], []),
+        "read_data_TLB_entry_translation": IntrinsicInfo([], []),
+        "read_instruction_TLB_entry_virtual": IntrinsicInfo([], []),
+        "read_instruction_TLB_entry_translation": IntrinsicInfo([], []),
+        "write_data_TLB_entry": IntrinsicInfo([], []),
+        "write_instruction_TLB_entry": IntrinsicInfo([], []),
+
+        # Instruction Cache Test Option
+        "load_instruction_cache_tag": IntrinsicInfo([], []),
+        "load_instruction_cache_word": IntrinsicInfo([], []),
+        "store_instruction_cache_tag": IntrinsicInfo([], []),
+        "store_instruction_cache_word": IntrinsicInfo([], []),
+
+        #  Data Cache Test Option
+        "load_data_cache_tag": IntrinsicInfo([], []),
+        "store_data_cache_tag": IntrinsicInfo([], []),
+
+        # Conditional Store Option
+        "store_32bit_compare_conditional": IntrinsicInfo([], []),
+
+        # Miscelaneaous Operations Option - Placeholders
+        "normalization_shift_amount": IntrinsicInfo([], []),
+        "normalization_shift_amount_unsigned": IntrinsicInfo([], []),
+
     }    
 
     def _decode_instruction(self, data, addr):
@@ -176,7 +215,10 @@ class XtensaLE(Architecture):
             raise Exception("Somehow we got here without setting length")
 
         # Add branches
-        if insn.mnem in ["RET", "RET.N", "RETW", "RETW.N"]: # Added retw as branches too
+        if insn.mnem in ["RET", "RET.N", "RETW", "RETW.N"]:
+            result.add_branch(BranchType.FunctionReturn)
+        # Returns from interrups or exceptions
+        elif insn.mnem in ["RFI", "RFME", "RFWO", "RFE", "RFDE", "RFUE"]:
             result.add_branch(BranchType.FunctionReturn)
         # Section 3.8.4 "Jump and Call Instructions
         elif insn.mnem in ["J"]:
