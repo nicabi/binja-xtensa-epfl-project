@@ -1447,13 +1447,6 @@ _lift_RFUE = _lift_RFE
 _lift_RFDE = _lift_RFE # TODO: include NDEPC as register (?) and use DEPC as destination if 1
 
 ##############################################
-#### Multiprocessor Synchronization Option ###
-##############################################
-# TODO: def _lift_L32AI
-# TODO: def _lift_S32RI
-
-
-##############################################
 ###### High-Priority Interrupt Option  #######
 ############ Interrupt Option  ###############
 ##############################################
@@ -1471,6 +1464,17 @@ def _lift_RSIL(insn, addr, il):
     return insn.length
 
 # TODO: def _lift_WAITI
+
+############################################################
+######### Memory ECC/Parity Option #########################
+############################################################
+def _lift_RFME(insn, addr, il):
+    dest = il.reg(4, 'mepc')
+    il.append( il.set_reg(4, "ps",  il.reg(4, "meps")))
+    # TODO: add MESR.MEME=0
+    il.append(il.ret(dest))
+    return insn.length
+
 
 ############################################################
 ######### MAC16 Option #####################################
@@ -1494,15 +1498,13 @@ def _lift_RSIL(insn, addr, il):
 # TODO: MULS.DD.*
 # TODO: UMUL.AA.*
 
-############################################################
-######### Memory ECC/Parity Option #########################
-############################################################
-def _lift_RFME(insn, addr, il):
-    dest = il.reg(4, 'mepc')
-    il.append( il.set_reg(4, "ps",  il.reg(4, "meps")))
-    # TODO: add MESR.MEME=0
-    il.append(il.ret(dest))
-    return insn.length
+##############################################
+#### Multiprocessor Synchronization Option ###
+##############################################
+# TODO: def _lift_L32AI
+# TODO: def _lift_S32RI
+
+
 
 #############################################################################
 # Only instrinsics lifter instructions below
