@@ -1131,7 +1131,7 @@ def _lift_anyall(insn, addr, il, op):
     offset = int(op[-1]) # get the size of the instruction (4 or 8)
     
     temp = s_reg
-    for idx in range(s+1, s+offset):
+    for idx in range(s+1, min(s+offset, 16)):
         if op[:-1] == "ALL":
             temp = il.and_expr(1, temp, il.reg(1, "b" + str(idx)))
         elif op[:-1] == "ANY":
