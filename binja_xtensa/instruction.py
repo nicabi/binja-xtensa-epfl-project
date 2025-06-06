@@ -841,7 +841,7 @@ class Instruction:
     _decode_MOVGEZ = mnem("MOVGEZ", "RRR")
     _decode_MOVF = mnem("MOVF", "RRR")
     _decode_MOVT = mnem("MOVT", "RRR")
-    _decode_RUR = mnem("RUR", "RRR") # lol, could probably treat as RSR
+    _decode_RUR = mnem("RUR", "RSR") # lol, could probably treat as RSR
     _decode_WUR = mnem("WUR", "RSR")
 
     _lscx_map = [

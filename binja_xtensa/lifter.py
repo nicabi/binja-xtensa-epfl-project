@@ -5,6 +5,7 @@ Here we provide a `lift` function that takes a decoded instruction and an
 address where that instruction is, and we return BNIL.
 """
 from binaryninja import Architecture, LowLevelILLabel, LLIL_TEMP
+from binaryninja.settings import Settings
 
 from .instruction import Instruction, sign_extend
 
