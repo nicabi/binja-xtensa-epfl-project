@@ -682,6 +682,34 @@ def _lift_L32R(insn, addr, il):
                    il.load(4, va)))
     return insn.length
 
+# Attempt at implementing LITBASE for L32R - TODO: test using qualcomm wifi chip firmware:
+# https://github.com/DanielAW/qcamon/tree/main
+
+# def _lift_L32R(insn, addr, il):
+#     true_label = LowLevelILLabel()
+#     false_label = LowLevelILLabel()
+#     end_label = LowLevelILLabel()
+
+#     # First check if LITBASE is enabled
+#     litbase_enable = il.and_expr(1, il.reg(4, "LITBASE"), il.const(4, 0x00000001)) # (LITBASE & 0xFFFFF000)
+#     cond = il.compare_equal(1, litbase_enable, il.const(1, 1))
+    
+#     # Then branch based on the condition
+#     il.append(il.if_expr(cond, true_label, false_label))
+#     # If LITBASE enabled, use it for address
+#     il.mark_label(true_label)
+#     enc = sign_extend(insn.imm16 | 0xFFFF0000, 32) << 2
+#     litbase_val = il.and_expr(4, il.reg(4, "LITBASE"), il.const(4, 0xFFFFF000)) # (LITBASE & 0xFFFFF000)
+#     il.add(4, litbase_val, il.const(4, enc))
+
+#     # Otherwise, use the PC instead
+#     il.mark_label(false_label)
+#     va = il.const(4, insn.mem_offset(addr))
+#     il.append(il.set_reg(4, _reg_name(insn, "at"), il.load(4, va)))
+#     il.mark_label(end_label)
+
+#     return insn.length
+
 # Store instructions
 def _lift_S8I(insn, addr, il):
     il.append(il.store(1, il.add(4,
