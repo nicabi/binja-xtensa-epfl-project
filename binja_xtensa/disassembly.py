@@ -229,12 +229,6 @@ def _disassemble_user_special_register(insn, addr, special=True):
         tokens.append(token_func(insn, addr))
     return tokens
 
-_disassemble_RSR = lambda insn, addr: _disassemble_user_special_register(insn, addr, True)
-_disassemble_WSR = _disassemble_XSR = _disassemble_RSR
-
-_disassemble_RUR = lambda insn, addr: _disassemble_user_special_register(insn, addr, False)
-_disassemble_WUR = _disassemble_RUR
-
 # As I mentioned in the decoding code, instruction formats aren't too useful in
 # Xtensa... but we do fall back to these for a few simple instructions. It's
 # almost easier to list an instruction below than it is to verify the default is
@@ -244,213 +238,67 @@ _disassemble_rrrn = _dis("ar as at")
 _disassemble_rri8 = _dis("at as simm8")
 
 # Overrides for exceptions to the instruction type
-_disassemble_ABS = _dis("ar at")
-_disassemble_ADDI_N = _dis("ar as addi_n_imm")
-_disassemble_ADDMI = _dis("at as simm8_s8")
+
+############################################################
+######### Loop Option ######################################
+############################################################
+_disassemble_LOOP = _dis("as imm8")
+_disassemble_LOOPGTZ = _dis("as imm8")
+_disassemble_LOOPNEZ = _dis("as imm8")
+
+############################################################
+######### 16-bit Integer Multiply Option ###################
+############################################################
+# All covered already by default rule _disassemble_rrr 
+
+############################################################
+######### 32-bit Integer Multiply Option ###################
+############################################################
+# All covered already by default rule _disassemble_rrr 
+
+############################################################
+######### 32-bit Integer Divide Option #####################
+############################################################
+# All covered already by default rule _disassemble_rrr 
+
+############################################################
+######### MAC16 Optzion #####################################
+############################################################
+_disassemble_LDDEC = _dis("mw as")
+_disassemble_LDINC = _dis("mw as")
+# TODO: disasssemble rest of MAC16
+
+############################################################
+######### Miscellaneous Operations Option ##################
+############################################################
+_disassemble_CLAMPS = _dis("ar as inline0",
+                         lambda insn, _: _get_imm8_tok(insn.t + 7))
+_disassemble_SEXT     = _dis("ar as inline0",   lambda insn, _: _get_imm8_tok(insn.inline0(_)))
+_disassemble_NSA      = _dis("at as")
+_disassemble_NSAU     = _dis("at as")
+
+# MAX, MAXU, MIN, MINU  covered already by default rule _disassemble_rrr 
+
+############################################################
+######### Boolean Option ###################################
+############################################################
 _disassemble_ALL4 = _dis("bt bs")
 _disassemble_ALL8 = _dis("bt bs")
 _disassemble_ANDB = _dis("br bs bt")
 _disassemble_ANDBC = _dis("br bs bt")
 _disassemble_ANY4 = _dis("bt bs")
 _disassemble_ANY8 = _dis("bt bs")
-
-_disassemble_BALL = _dis("as at target_offset")
-_disassemble_BANY = _dis("as at target_offset")
-_disassemble_BBC = _dis("as at target_offset")
-_disassemble_BBCI = _dis("as inline0 target_offset",
-                         lambda insn, _: _get_imm8_tok(insn.inline0(_)))
-_disassemble_BBCI_L = _dis("as inline0 target_offset",
-                         lambda insn, _: _get_imm8_tok(insn.inline0(_)))
-_disassemble_BBS = _dis("as at target_offset")
-_disassemble_BBSI = _dis("as inline0 target_offset",
-                         lambda insn, _: _get_imm8_tok(insn.inline0(_)))
-_disassemble_BBSI_L = _dis("as inline0 target_offset",
-                         lambda insn, _: _get_imm8_tok(insn.inline0(_)))
-
-_disassemble_BEQ = _dis("as at target_offset")
-_disassemble_BEQI = _dis("as b4const target_offset")
-_disassemble_BEQZ = _dis("as target_offset")
-_disassemble_BEQZ_N = _dis("as target_offset")
 _disassemble_BF = _dis("bs target_offset")
-_disassemble_BGE = _dis("as at target_offset")
-_disassemble_BGEI = _dis("as b4const target_offset")
-_disassemble_BGEU = _dis("as at target_offset")
-_disassemble_BGEUI = _dis("as b4constu target_offset")
-_disassemble_BGEZ = _dis("as target_offset")
-_disassemble_BLT = _dis("as at target_offset")
-_disassemble_BLTI = _dis("as b4const target_offset")
-_disassemble_BLTU = _dis("as at target_offset")
-_disassemble_BLTUI = _dis("as b4constu target_offset")
-_disassemble_BLTZ = _dis("as target_offset")
-_disassemble_BNALL = _dis("as at target_offset")
-_disassemble_BNE = _dis("as at target_offset")
-_disassemble_BNEI = _dis("as b4const target_offset")
-_disassemble_BNEZ = _dis("as target_offset")
-_disassemble_BNEZ_N = _dis("as target_offset")
-_disassemble_BNONE = _dis("as at target_offset")
-
-_disassemble_BREAK = _dis("s t")
-_disassemble_BREAK_N = _dis("s")
 _disassemble_BT = _dis("bs target_offset")
-
-_disassemble_CALL0  = _dis("target_offset")
-_disassemble_CALL4  = _dis("target_offset")
-_disassemble_CALL8  = _dis("target_offset")
-_disassemble_CALL12 = _dis("target_offset")
-
-_disassemble_CALLX0  = _dis("as")
-_disassemble_CALLX4  = _dis("as")
-_disassemble_CALLX8  = _dis("as")
-_disassemble_CALLX12 = _dis("as")
-
-_disassemble_CLAMPS = _dis("ar as inline0",
-                         lambda insn, _: _get_imm8_tok(insn.t + 7))
-# Data Cache Option instructions
-_disassemble_DHI = _dis("as imm8")
-_disassemble_DHU = _dis("as imm4")
-_disassemble_DHWB = _dis("as imm8")
-_disassemble_DHWBI = _dis("as imm8")
-_disassemble_DII = _dis("as imm8")
-_disassemble_DIU = _dis("as imm4")
-_disassemble_DIWB = _dis("as imm4")
-_disassemble_DIWBI = _dis("as imm4")
-_disassemble_DPFL = _dis("as imm4")
-_disassemble_DPFR = _dis("as imm8")
-_disassemble_DPFRO = _dis("as imm8")
-_disassemble_DPFW = _dis("as imm8")
-_disassemble_DPFWO = _dis("as imm8")
-
-_disassemble_DSYNC = _dis("") # Just the mnem
-_disassemble_ENTRY = _dis("as inline0",
-                          lambda insn, _: _get_imm32_tok(insn.inline0(_)))
-_disassemble_ESYNC = _dis("") # Just the mnem
-_disassemble_EXCW = _dis("") # Just the mnem
-_disassemble_EXTUI = _dis("ar at inline0 inline1",
-                         lambda insn, _: _get_imm8_tok(insn.extui_shiftimm()),
-                         lambda insn, _: _get_imm8_tok(insn.inline1(_)))
-_disassemble_EXTW = _dis("")
-
-
-_disassemble_IDTLB = _dis("as")
-
-_disassemble_IHI = _dis("as imm8")
-_disassemble_IHU = _dis("as imm4")
-_disassemble_III = _dis("as imm8")
-_disassemble_IIU = _dis("as imm4")
-_disassemble_IPF = _dis("as imm8")
-_disassemble_IPFL = _dis("as imm4")
-
-_disassemble_IITLB = _dis("as")
-_disassemble_ILL = _dis("")
-_disassemble_ILL_N = _dis("")
-_disassemble_ISYNC = _dis("")
-_disassemble_J = _dis("target_offset")
-_disassemble_JX = _dis("as")
-_disassemble_L8UI = _dis("at as imm8")
-_disassemble_L16SI = _dis("at as inline0",
-                          lambda insn, _: _get_imm32_tok(insn.inline0(_)))
-_disassemble_L16UI = _dis("at as inline0",
-                          lambda insn, _: _get_imm32_tok(insn.inline0(_)))
-_disassemble_L32AI = _dis("at as inline0",
-                          lambda insn, _: _get_imm32_tok(insn.inline0(_)))
-
-_disassemble_L32E   = _dis("at as inline0",
-                          lambda insn, _: _get_imm8_tok(insn.inline0(_)))
-_disassemble_L32E_N = _dis("at as inline0",
-                          lambda insn, _: _get_imm8_tok(insn.inline0(_)))
-
-_disassemble_L32I   = _dis("at as inline0",
-                          lambda insn, _: _get_imm32_tok(insn.inline0(_)))
-_disassemble_L32I_N = _dis("at as inline0",
-                          lambda insn, _: _get_imm32_tok(insn.inline0(_)))
-_disassemble_L32R = _dis("at mem_offset")
-
-_disassemble_LDCT = _dis("at as")
-_disassemble_SDCT = _dis("at as")
-
-# MAC16 option  - TODO - Test when implementing module
-_disassemble_LDDEC = _dis("mw as")
-_disassemble_LDINC = _dis("mw as")
-
-_disassemble_LICT = _dis("at as")
-_disassemble_LICW = _dis("at as")
-_disassemble_SICT = _dis("at as")
-_disassemble_SICW = _dis("at as")
-
-_disassemble_LOOP = _dis("as imm8")
-_disassemble_LOOPGTZ = _dis("as imm8")
-_disassemble_LOOPNEZ = _dis("as imm8")
-
-_disassemble_MULL = _dis("ar as at")
-
-_disassemble_MEMW = _dis("")
-_disassemble_MOVI = _dis("at inline0",
-                         lambda insn, _: _get_imm32_tok(insn.inline0(_)))
-_disassemble_MOVI_N   = _dis("as inline0",
-                           lambda insn, _: _get_imm32_tok(insn.inline0(_)))
-_disassemble_MOV_N    = _dis("at as")
 _disassemble_MOVF     = _dis("ar as bt")
-_disassemble_MOVSP    = _dis("at as")
 _disassemble_MOVT     = _dis("ar as bt")
-_disassemble_NEG      = _dis("ar at")
-_disassemble_NOP      = _dis("")
-_disassemble_NOP_N    = _dis("")
-_disassemble_NSA      = _dis("at as")
-_disassemble_NSAU     = _dis("at as")
 _disassemble_ORB      = _dis("br bs bt")
 _disassemble_ORBC     = _dis("br bs bt")
-_disassemble_PDTLB    = _dis("at as")
-_disassemble_PITLB    = _dis("at as")
-_disassemble_RDTLB0   = _dis("at as")
-_disassemble_RDTLB1   = _dis("at as")
-_disassemble_RER      = _dis("at as")
-_disassemble_RET      = _dis("") # Equivalent in function to "JX a0"
-_disassemble_RET_N    = _dis("") # Same function as RET
-_disassemble_RETW     = _dis("")
-_disassemble_RETW_N   = _dis("")
-_disassemble_RFDD     = _dis("")
-_disassemble_RFDE     = _dis("")
-_disassemble_RFUE     = _dis("")
-_disassemble_RFME     = _dis("")
-_disassemble_RFDO     = _dis("")
-_disassemble_RFWO     = _dis("")
-_disassemble_RFWU     = _dis("")
-_disassemble_RFE      = _dis("")
-_disassemble_RFI      = _dis("s")
-_disassemble_RITLB0   = _dis("at as")
-_disassemble_RITLB1   = _dis("at as")
-_disassemble_ROTW     = _dis("rotw_simm4")
-_disassemble_RSIL     = _dis("at s")
-_disassemble_RSYNC    = _dis("")
-
-_disassemble_S8I      = _dis("at as imm8")
-_disassemble_S16I     = _dis("at as inline0",   lambda insn, _: _get_imm32_tok(insn.inline0(_)))
-_disassemble_S32E     = _dis("at as inline0",   lambda insn, _: _get_imm8_tok((insn.r << 2) - 64))
-_disassemble_S32I     = _dis("at as inline0",   lambda insn, _: _get_imm32_tok(insn.inline0(_)))
-_disassemble_S32I_N   = _dis("at as inline0",   lambda insn, _: _get_imm32_tok(insn.inline0(_)))
-_disassemble_S32RI    = _dis("at as inline0",   lambda insn, _: _get_imm32_tok(insn.inline0(_)))
-_disassemble_SEXT     = _dis("ar as inline0",   lambda insn, _: _get_imm8_tok(insn.inline0(_)))
-_disassemble_SIMCALL  = _dis("")
-_disassemble_SLL      = _dis("ar as")
-_disassemble_SLLI     = _dis("ar as inline0",   lambda insn, _: _get_imm8_tok(insn.inline0(_)))
-_disassemble_SRA      = _dis("ar at")
-_disassemble_SRAI     = _dis("ar at inline0",   lambda insn, _: _get_imm8_tok(insn.inline0(_)))
-_disassemble_SRL      = _dis("ar at")
-_disassemble_SRLI     = _dis("ar at s")
-_disassemble_SSA8B    = _dis("as")
-_disassemble_SSA8L    = _dis("as")
-_disassemble_SSAI     = _dis("inline0", lambda insn, _: _get_imm8_tok(insn.inline0(_)))
-_disassemble_SSL      = _dis("as")
-_disassemble_SSR      = _dis("as")
-_disassemble_SYSCALL  = _dis("")
-_disassemble_WAITI    = _dis("s")
-_disassemble_WDTLB    = _dis("at as")
-_disassemble_WER      = _dis("at as")
-_disassemble_WITLB    = _dis("at as")
-_disassemble_WER      = _dis("at as")
 _disassemble_XORB     = _dis("br bs bt")
 
-# Dissassembling all Floating-Point Coprocessor Option 
+############################################################
+######### Floating-Point Coprocessor Option ################
+############################################################
 _disassemble_ABS_S    = _dis("fr fs")
 _disassemble_NEG_S    = _dis("fr fs")  
 _disassemble_ADD_S    = _dis("fr fs ft")
@@ -493,3 +341,245 @@ _disassemble_SSI      = _dis("ft as inline0", lambda insn, _: _get_imm32_tok(ins
 _disassemble_SSIU     = _dis("ft as inline0", lambda insn, _: _get_imm32_tok(insn.inline0(_)))
 _disassemble_SSX      = _dis("fr as at")
 _disassemble_SSXU     = _dis("fr as at")
+
+############################################################
+######### Multiprocessor Synchronization Option ############
+############################################################
+_disassemble_L32AI    = _dis("at as inline0", lambda insn, _: _get_imm32_tok(insn.inline0(_)))
+_disassemble_S32RI    = _dis("at as inline0", lambda insn, _: _get_imm32_tok(insn.inline0(_)))
+
+############################################################
+######### Conditional Store Option #########################
+############################################################
+_disassemble_S32C1I   = _dis("at as imm8")
+
+############################################################
+######### Exception Option #################################
+############################################################
+_disassemble_EXCW     = _dis("") # Just the mnem
+_disassemble_ILL      = _dis("")
+_disassemble_ILL_N    = _dis("")
+_disassemble_RFDE     = _dis("")
+_disassemble_RFE      = _dis("")
+_disassemble_RFUE     = _dis("")
+_disassemble_SYSCALL  = _dis("")
+
+############################################################
+######### Interrupt Option #################################
+############################################################
+_disassemble_RFI      = _dis("s")
+_disassemble_RSIL     = _dis("at s")
+_disassemble_WAITI    = _dis("s")
+
+############################################################
+######### Instruction Cache Option #########################
+############################################################
+_disassemble_IHI = _dis("as imm8")
+_disassemble_III = _dis("as imm8")
+_disassemble_IPF = _dis("as imm8")
+
+############################################################
+######### Instruction Cache Test Option ####################
+############################################################
+_disassemble_LICT = _dis("at as")
+_disassemble_LICW = _dis("at as")
+_disassemble_SICT = _dis("at as")
+_disassemble_SICW = _dis("at as")
+
+############################################################
+######### Instruction Cache Index Lock Option ##############
+############################################################
+_disassemble_IHU = _dis("as imm4")
+_disassemble_IIU = _dis("as imm4")
+_disassemble_IPFL = _dis("as imm4")
+
+############################################################
+######### Data Cache Option ################################
+############################################################
+_disassemble_DHI = _dis("as imm8")
+_disassemble_DHWB = _dis("as imm8")
+_disassemble_DHWBI = _dis("as imm8")
+_disassemble_DII = _dis("as imm8")
+_disassemble_DIWB = _dis("as imm4")
+_disassemble_DIWBI = _dis("as imm4")
+_disassemble_DPFR = _dis("as imm8")
+_disassemble_DPFRO = _dis("as imm8")
+_disassemble_DPFW = _dis("as imm8")
+_disassemble_DPFWO = _dis("as imm8")
+############################################################
+######### Data Cache Test Option ###########################
+############################################################
+_disassemble_LDCT = _dis("at as")
+_disassemble_SDCT = _dis("at as")
+
+############################################################
+######### Data Cache Index Lock Option #####################
+############################################################
+_disassemble_DHU = _dis("as imm4")
+_disassemble_DIU = _dis("as imm4")
+_disassemble_DPFL = _dis("as imm4")
+
+############################################################
+######### Region Protection / Translation / MMU Option #####
+############################################################
+_disassemble_IDTLB = _dis("as")
+_disassemble_IITLB = _dis("as")
+_disassemble_PDTLB    = _dis("at as")
+_disassemble_PITLB    = _dis("at as")
+_disassemble_RDTLB0   = _dis("at as")
+_disassemble_RDTLB1   = _dis("at as")
+_disassemble_RITLB0   = _dis("at as")
+_disassemble_RITLB1   = _dis("at as")
+_disassemble_WDTLB    = _dis("at as")
+_disassemble_WITLB    = _dis("at as")
+
+
+############################################################
+######### Windowed Register Option #########################
+############################################################
+_disassemble_CALL4  = _dis("target_offset")
+_disassemble_CALL8  = _dis("target_offset")
+_disassemble_CALL12 = _dis("target_offset")
+_disassemble_CALLX4  = _dis("as")
+_disassemble_CALLX8  = _dis("as")
+_disassemble_CALLX12 = _dis("as")
+_disassemble_ENTRY = _dis("as inline0",
+                          lambda insn, _: _get_imm32_tok(insn.inline0(_)))
+_disassemble_RETW     = _dis("")
+_disassemble_RETW_N   = _dis("")
+_disassemble_RFWO     = _dis("")
+_disassemble_RFWU     = _dis("")
+_disassemble_ROTW     = _dis("rotw_simm4")
+_disassemble_MOVSP    = _dis("at as")
+_disassemble_L32E   = _dis("at as inline0",
+                          lambda insn, _: _get_imm8_tok(insn.inline0(_)))
+_disassemble_L32E_N = _dis("at as inline0",
+                          lambda insn, _: _get_imm8_tok(insn.inline0(_)))
+_disassemble_S32E     = _dis("at as inline0",   lambda insn, _: _get_imm8_tok((insn.r << 2) - 64))
+
+
+############################################################
+######### Memory ECC/Parity Option #########################
+############################################################
+_disassemble_RFME     = _dis("")
+
+
+############################################################
+######### Debug Option #####################################
+############################################################
+_disassemble_BREAK = _dis("s t")
+_disassemble_RFDO     = _dis("")
+_disassemble_RFDD     = _dis("")
+_disassemble_BREAK_N = _dis("s")
+
+############################################################
+######### Core ISA (always present) ########################
+######### Code Density Option ##############################
+############################################################
+
+# The following instructions fall under the default rule _disassemble_rrr 
+# ADD, ADDX2, ADDX4, ADDX8, AND, MOVEQZ, MOVGEZ, MOVLTZ, MOVNEZ, OR, SRC, SUB, SUBX2, SUBX4, SUBX8, XOR
+_disassemble_ABS = _dis("ar at")
+_disassemble_ADDI_N = _dis("ar as addi_n_imm")
+_disassemble_ADDMI = _dis("at as simm8_s8")
+
+_disassemble_BALL = _dis("as at target_offset")
+_disassemble_BANY = _dis("as at target_offset")
+_disassemble_BBC = _dis("as at target_offset")
+_disassemble_BBCI = _dis("as inline0 target_offset",
+                         lambda insn, _: _get_imm8_tok(insn.inline0(_)))
+_disassemble_BBCI_L = _dis("as inline0 target_offset",
+                         lambda insn, _: _get_imm8_tok(insn.inline0(_)))
+_disassemble_BBS = _dis("as at target_offset")
+_disassemble_BBSI = _dis("as inline0 target_offset",
+                         lambda insn, _: _get_imm8_tok(insn.inline0(_)))
+_disassemble_BBSI_L = _dis("as inline0 target_offset",
+                         lambda insn, _: _get_imm8_tok(insn.inline0(_)))
+_disassemble_BEQ = _dis("as at target_offset")
+_disassemble_BEQI = _dis("as b4const target_offset")
+_disassemble_BEQZ = _dis("as target_offset")
+_disassemble_BEQZ_N = _dis("as target_offset")
+_disassemble_BGE = _dis("as at target_offset")
+_disassemble_BGEI = _dis("as b4const target_offset")
+_disassemble_BGEU = _dis("as at target_offset")
+_disassemble_BGEUI = _dis("as b4constu target_offset")
+_disassemble_BGEZ = _dis("as target_offset")
+_disassemble_BLT = _dis("as at target_offset")
+_disassemble_BLTI = _dis("as b4const target_offset")
+_disassemble_BLTU = _dis("as at target_offset")
+_disassemble_BLTUI = _dis("as b4constu target_offset")
+_disassemble_BLTZ = _dis("as target_offset")
+_disassemble_BNALL = _dis("as at target_offset")
+_disassemble_BNE = _dis("as at target_offset")
+_disassemble_BNEI = _dis("as b4const target_offset")
+_disassemble_BNEZ = _dis("as target_offset")
+_disassemble_BNEZ_N = _dis("as target_offset")
+_disassemble_BNONE = _dis("as at target_offset")
+
+_disassemble_CALL0  = _dis("target_offset")
+_disassemble_CALLX0  = _dis("as")
+
+
+_disassemble_DSYNC = _dis("") # Just the mnem
+_disassemble_ESYNC = _dis("") # Just the mnem
+_disassemble_EXTUI = _dis("ar at inline0 inline1",
+                         lambda insn, _: _get_imm8_tok(insn.extui_shiftimm()),
+                         lambda insn, _: _get_imm8_tok(insn.inline1(_)))
+_disassemble_EXTW = _dis("")
+
+_disassemble_ISYNC = _dis("")
+_disassemble_J = _dis("target_offset")
+_disassemble_JX = _dis("as")
+_disassemble_L8UI = _dis("at as imm8")
+_disassemble_L16SI = _dis("at as inline0",
+                          lambda insn, _: _get_imm32_tok(insn.inline0(_)))
+_disassemble_L16UI = _dis("at as inline0",
+                          lambda insn, _: _get_imm32_tok(insn.inline0(_)))
+
+
+_disassemble_L32I   = _dis("at as inline0",
+                          lambda insn, _: _get_imm32_tok(insn.inline0(_)))
+_disassemble_L32I_N = _dis("at as inline0",
+                          lambda insn, _: _get_imm32_tok(insn.inline0(_)))
+_disassemble_L32R = _dis("at mem_offset")
+
+_disassemble_MEMW = _dis("")
+_disassemble_MOVI = _dis("at inline0",
+                         lambda insn, _: _get_imm32_tok(insn.inline0(_)))
+_disassemble_MOVI_N   = _dis("as inline0",
+                           lambda insn, _: _get_imm32_tok(insn.inline0(_)))
+_disassemble_MOV_N    = _dis("at as")
+
+_disassemble_NEG      = _dis("ar at")
+_disassemble_NOP      = _dis("")
+_disassemble_NOP_N    = _dis("")
+_disassemble_RET      = _dis("") # Equivalent in function to "JX a0"
+_disassemble_RET_N    = _dis("") # Same function as RET
+_disassemble_RSYNC    = _dis("")
+
+_disassemble_S8I      = _dis("at as imm8")
+_disassemble_S16I     = _dis("at as inline0",   lambda insn, _: _get_imm32_tok(insn.inline0(_)))
+_disassemble_S32I     = _dis("at as inline0",   lambda insn, _: _get_imm32_tok(insn.inline0(_)))
+_disassemble_S32I_N   = _dis("at as inline0",   lambda insn, _: _get_imm32_tok(insn.inline0(_)))
+_disassemble_SIMCALL  = _dis("")
+_disassemble_SLL      = _dis("ar as")
+_disassemble_SLLI     = _dis("ar as inline0",   lambda insn, _: _get_imm8_tok(insn.inline0(_)))
+_disassemble_SRA      = _dis("ar at")
+_disassemble_SRAI     = _dis("ar at inline0",   lambda insn, _: _get_imm8_tok(insn.inline0(_)))
+_disassemble_SRL      = _dis("ar at")
+_disassemble_SRLI     = _dis("ar at s")
+_disassemble_SSA8B    = _dis("as")
+_disassemble_SSA8L    = _dis("as")
+_disassemble_SSAI     = _dis("inline0", lambda insn, _: _get_imm8_tok(insn.inline0(_)))
+_disassemble_SSL      = _dis("as")
+_disassemble_SSR      = _dis("as")
+
+
+_disassemble_RSR = lambda insn, addr: _disassemble_user_special_register(insn, addr, True)
+_disassemble_WSR = _disassemble_XSR = _disassemble_RSR
+
+_disassemble_RUR = lambda insn, addr: _disassemble_user_special_register(insn, addr, False)
+_disassemble_WUR = _disassemble_RUR
+
+_disassemble_WER      = _dis("at as")
+_disassemble_RER      = _dis("at as")
