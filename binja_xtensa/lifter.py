@@ -27,7 +27,7 @@ def _reg_name(insn, fmt, offset=0):
         val = getattr(insn, rest, None)
         if val is None:
             raise Exception("Could not find property " + fmt)
-        return int(val+offset)          
+        return "b" + str(val+offset)          
     elif fmt.startswith("f"):
         rest = fmt[1:]
         val = getattr(insn, rest, None)
@@ -749,53 +749,43 @@ def _lift_S32I_N(insn, addr, il):
 
 def _lift_RSR(insn, addr, il):
     sr = insn._special_reg_map.get(insn.sr)
-    if not sr:
-        il.append(il.unimplemented())
-    else:
-        il.append( il.set_reg(4, _reg_name(insn, "at"),  il.reg(4, sr[0].lower())))
+    sr = "sr" + str(insn.sr) if (not sr) else sr[0].lower()
 
+    il.append( il.set_reg(4, _reg_name(insn, "at"),  il.reg(4, sr)))
     return insn.length
 
 def _lift_WSR(insn, addr, il):
     sr = insn._special_reg_map.get(insn.sr)
-    if not sr:
-        il.append(il.unimplemented())
-    else:
-        il.append( il.set_reg(4, sr[0].lower(),  il.reg(4, _reg_name(insn, "at"))))
+    sr = "sr" + str(insn.sr) if (not sr) else sr[0].lower()
+        
+    il.append( il.set_reg(4, sr,  il.reg(4, _reg_name(insn, "at"))))
     return insn.length
 
 def _lift_XSR(insn, addr, il):
     sr = insn._special_reg_map.get(insn.sr)
-    if not sr:
-        il.append(il.unimplemented())
-    else:
-        temp = LLIL_TEMP(0)
-        sr_reg = sr[0].lower()
-        at_reg = _reg_name(insn, "at")
+    sr = "sr" + str(insn.sr) if (not sr) else sr[0].lower()
 
-        il.append(il.set_reg(4, temp, il.reg(4, sr_reg)))
-        il.append(il.set_reg(4, sr_reg, il.reg(4, at_reg)))
-        il.append(il.set_reg(4, at_reg, il.reg(4, temp)))
+    temp = LLIL_TEMP(0)
+    at_reg = _reg_name(insn, "at")
+    il.append(il.set_reg(4, temp, il.reg(4, sr)))
+    il.append(il.set_reg(4, sr, il.reg(4, at_reg)))
+    il.append(il.set_reg(4, at_reg, il.reg(4, temp)))
     return insn.length
 
 ##############################################
 # User register instructions: WUR, RUR
 
 def _lift_RUR(insn, addr, il):
-    sr = insn._user_reg_map.get(insn.sr)
-    if not sr:
-        il.append(il.unimplemented())
-    else:
-        il.append( il.set_reg(4, _reg_name(insn, "at"),  il.reg(4, sr[0].lower())))
-
+    ur = insn._user_reg_map.get(insn.sr)
+    ur = "ur" + str(insn.sr) if (not ur) else ur[0].lower()
+    il.append( il.set_reg(4, _reg_name(insn, "at"),  il.reg(4, ur)))
     return insn.length
 
 def _lift_WUR(insn, addr, il):
-    sr = insn._user_reg_map.get(insn.sr)
-    if not sr:
-        il.append(il.unimplemented())
-    else:
-        il.append( il.set_reg(4, sr[0].lower(),  il.reg(4, _reg_name(insn, "at"))))
+    ur = insn._user_reg_map.get(insn.sr)
+    ur = "ur" + str(insn.sr) if (not ur) else ur[0].lower()
+    
+    il.append( il.set_reg(4, ur,  il.reg(4, _reg_name(insn, "at"))))
     return insn.length
 
 # TODO: RER
@@ -826,8 +816,8 @@ def _lift_CALLXn(insn, addr, il, n):
     for i in range(16-n): il.append(il.set_reg(4, 'a' + str(i+n), il.reg(4, 'a' + str(i))))
     for i in range(n): il.append(il.set_reg(4, 'a' + str(i), il.reg(4, LLIL_TEMP(i))))
 
-
     return insn.length
+
 _lift_CALLX4  = lambda insn, addr,il: _lift_CALLXn(insn, addr, il, 4)
 _lift_CALLX8  = lambda insn, addr,il: _lift_CALLXn(insn, addr, il, 8)
 _lift_CALLX12 = lambda insn, addr,il: _lift_CALLXn(insn, addr, il, 12)
@@ -842,6 +832,7 @@ def _lift_CALLn(insn, addr, il, n):
     for i in range(n): il.append(il.set_reg(4, 'a' + str(i), il.reg(4, LLIL_TEMP(i))))
 
     return insn.length
+
 _lift_CALL4  = lambda insn, addr,il: _lift_CALLn(insn, addr, il, 4)
 _lift_CALL8  = lambda insn, addr,il: _lift_CALLn(insn, addr, il, 8)
 _lift_CALL12 = lambda insn, addr,il: _lift_CALLn(insn, addr, il, 12)
@@ -1153,38 +1144,32 @@ def _lift_SSX(insn, addr, il):
 #################################
 # Boolean option Chapter 4.3.10 #
 #################################
-def _lift_anyall(insn, addr, il, op):
-    s = _reg_name(insn, "bs")
-    s_reg = il.reg(1, "b" + str(_reg_name(insn, "bs")))
-    t_reg = il.reg(1, "b" + str(_reg_name(insn, "bt")))
+def _lift_anyall(insn, addr, il):
+    op, s = insn.mnem, insn.s
+    s_reg = il.reg(1, _reg_name(insn, "bs"))
     offset = int(op[-1]) # get the size of the instruction (4 or 8)
-    
     temp = s_reg
     for idx in range(s+1, min(s+offset, 16)):
-        if op[:-1] == "ALL":
-            temp = il.and_expr(1, temp, il.reg(1, "b" + str(idx)))
-        elif op[:-1] == "ANY":
-            temp = il.or_expr(1, temp, il.reg(1, "b" + str(idx)))
-        else:
-            raise Exception("Wrong op used in _lift_anyall4. Can only use ANY4, ANY8, ALL4, ALL8, but op was " + op)
-
-    il.append(il.set_reg(2, t_reg, temp))
+        match op[:-1]:
+            case "ALL": temp = il.and_expr(1, temp, il.reg(1, "b" + str(idx)))
+            case "ANY": temp = il.or_expr(1, temp, il.reg(1, "b" + str(idx)))
+    il.append(il.set_reg(2, _reg_name(insn, "bt"), temp))
     return insn.length
+_lift_ALL4 = _lift_ALL8 = _lift_ANY4 = _lift_ANY8 = _lift_anyall
 
-def _lift_ALL4(insn, addr, il):
-    return _lift_anyall(insn, addr, il, "ALL4")
-def _lift_ALL8(insn, addr, il):
-    return _lift_anyall(insn, addr, il, "ALL8")
-def _lift_ANY4(insn, addr, il):
-    return _lift_anyall(insn, addr, il, "ANY4")
-def _lift_ANY8(insn, addr, il):
-    return _lift_anyall(insn, addr, il, "ANY8")
+# def _lift_ALL4(insn, addr, il):
+#     return _lift_anyall(insn, addr, il, "ALL4")
+# def _lift_ALL8(insn, addr, il):
+#     return _lift_anyall(insn, addr, il, "ALL8")
+# def _lift_ANY4(insn, addr, il):
+#     return _lift_anyall(insn, addr, il, "ANY4")
+# def _lift_ANY8(insn, addr, il):
+#     return _lift_anyall(insn, addr, il, "ANY8")
 
 # Helper function to implement binary operations of boolean registers
 def _lift_binop_B(insn, addr, il, op):
-    r = il.reg(1, "b" + str(_reg_name(insn, "br")))
-    t = il.reg(1, "b" + str(_reg_name(insn, "bt")))
-    s = il.reg(1, "b" + str(_reg_name(insn, "bs")))
+    t = il.reg(1, _reg_name(insn, "bt"))
+    s = il.reg(1, _reg_name(insn, "bs"))
     
     bit_t_neg = il.not_expr(1, t) # Negate bit if necessary
     match op:
@@ -1193,7 +1178,7 @@ def _lift_binop_B(insn, addr, il, op):
         case "ORB":     temp = il.or_expr(1,  s, t)
         case "ORBC":    temp = il.or_expr(1,  s, bit_t_neg)
         case "XORB":    temp = il.xor_expr(1, s, t)
-    il.append(il.set_reg(2, r, temp))
+    il.append(il.set_reg(1, _reg_name(insn, "br"), temp))
     return insn.length
 
 def _lift_ANDB(insn, addr, il):
@@ -1209,7 +1194,7 @@ def _lift_XORB(insn, addr, il):
 
 # Helper function for BF and BT, as only difference is the value of the condition
 def _lift_BFT(insn, addr, il, bit):
-    s = il.reg(1, "b" + str(_reg_name(insn, "bs")))
+    s = il.reg(1, _reg_name(insn, "bs"))
     
     cond = il.compare_equal(1, s, il.const(1, bit)) # 
     true_label, false_label = LowLevelILLabel(), LowLevelILLabel()
@@ -1227,8 +1212,7 @@ def _lift_BT(insn, addr, il):
 
 # Helper function for MOVF and MOVT, as only difference is the value of the condition
 def _lift_MOVFT(insn, addr, il, bit, float):
-    t = _reg_name(insn, "bt")
-    t = il.reg(1, "b" + str(_reg_name(insn, "bt")))
+    t = il.reg(1, _reg_name(insn, "bt"))
     cond = il.compare_equal(1,  t, il.const(1, bit))
     return _lift_cmov(cond, insn, addr, il, float)
 _lift_MOVF = lambda insn, addr, il: _lift_MOVFT(insn, addr, il, 0, False)
@@ -1489,10 +1473,16 @@ def _lift_RFI(insn, addr, il):
 def _lift_RSIL(insn, addr, il):
     ps_reg = il.reg(4, "ps")
     il.append(il.set_reg(4, _reg_name(insn, "at"),  ps_reg))
-    # TODO: ps.INTLEVEL = as
+    ps_rest = il.and_expr(1, il.reg(4, "ps"), il.const(4, 0xFFFFFFF0))
+    result = il.or_expr(1, il.const(4, insn.s), ps_rest) 
+    il.append(il.set_reg(4, "ps",  result))
     return insn.length
 
-# TODO: def _lift_WAITI
+def _lift_WAITI(insn, addr, il):
+    ps_rest = il.and_expr(1, il.reg(4, "ps"), il.const(4, 0xFFFFFFF0))
+    result = il.or_expr(1, il.const(4, insn.s), ps_rest) 
+    il.append(il.set_reg(4, "ps",  result))
+    return insn.length
 
 ############################################################
 ######### Memory ECC/Parity Option #########################
@@ -1530,8 +1520,21 @@ def _lift_RFME(insn, addr, il):
 ##############################################
 #### Multiprocessor Synchronization Option ###
 ##############################################
-# TODO: def _lift_L32AI
-# TODO: def _lift_S32RI
+
+def _lift_L32AI(insn, addr, il):
+    va = il.add(4, il.reg(4, _reg_name(insn, "as")),
+                   il.const(4, insn.inline0(addr)))
+    il.append(il.set_reg(4, _reg_name(insn, "at"), il.load(4, va)))
+    il.append(il.intrinsic([], "acquire", []))
+    return insn.length
+
+
+def _lift_S32RI(insn, addr, il):
+    va = il.add(4, il.reg(4, _reg_name(insn, "as")),
+                   il.const(4, insn.inline0(addr)))
+    il.append(il.store(4, va, il.reg(4, _reg_name(insn, "at"))))
+    il.append(il.intrinsic([], "acquire", []))
+    return insn.length
 
 
 
