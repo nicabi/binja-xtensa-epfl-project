@@ -16,9 +16,9 @@ S32I.N
 ############################################################
 ######### Loop Option ######################################
 ############################################################
-LOOP
-LOOPNEZ
-LOOPGTZ
+LOOP        - Partial lifting. TODO: update once function-level lifting is added to Binary Ninja
+LOOPNEZ     - Partial lifting. TODO: update once function-level lifting is added to Binary Ninja
+LOOPGTZ     - Partial lifting. TODO: update once function-level lifting is added to Binary Ninja
 
 ############################################################
 ######### 16-bit Integer Multiply Option ###################
@@ -232,12 +232,12 @@ WITLB
 ############################################################
 ######### Windowed Register Option #########################
 ############################################################
-CALL4
-CALL8
-CALL12
-CALLX4
-CALLX8
-CALLX12
+CALL4       - TODO: update with transparent copies once they are added to Binary Ninja
+CALL8       - TODO: update with transparent copies once they are added to Binary Ninja
+CALL12      - TODO: update with transparent copies once they are added to Binary Ninja
+CALLX4      - TODO: update with transparent copies once they are added to Binary Ninja  
+CALLX8      - TODO: update with transparent copies once they are added to Binary Ninja
+CALLX12     - TODO: update with transparent copies once they are added to Binary Ninja
 ENTRY
 RETW
 RETW.N
