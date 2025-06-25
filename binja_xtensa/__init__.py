@@ -104,13 +104,23 @@ class XtensaLE(Architecture):
     for i in range(16):
         regs[f"b{i}"] = RegisterInfo(f"b{i}", 1, 0)
 
+    sr_map = Instruction._special_reg_map
+    for i in range(256):
+        if i in sr_map:
+            regs[sr_map[i][0].lower()] = RegisterInfo(sr_map[i][0].lower(), sr_map[i][1], 0)
+        else:
+            regs["sr"+str(i)] = RegisterInfo("sr"+str(i), 4, 0)
+
     for k,val in Instruction._special_reg_map.items():
         regs[val[0].lower()] = RegisterInfo(val[0].lower(), val[1], 0)
 
-    # User Registers
-    regs["threadptr"] = RegisterInfo(f"threadptr", 4, 0)
-    regs["fcr"] = RegisterInfo(f"fcr", 4, 0)
-    regs["fsr"] = RegisterInfo(f"fsr", 4, 0)
+    ur_map = Instruction._user_reg_map
+    for i in range(256):
+        if i in ur_map:
+            regs[ur_map[i][0].lower()] = RegisterInfo(ur_map[i][0].lower(), ur_map[i][1], 0)
+        else:
+            regs["ur"+str(i)] = RegisterInfo("ur"+str(i), 4, 0)
+
 
     # Do we have flags?
     flags = {}
@@ -195,6 +205,8 @@ class XtensaLE(Architecture):
         "normalization_shift_amount": IntrinsicInfo([], []),
         "normalization_shift_amount_unsigned": IntrinsicInfo([], []),
 
+        # Multiprocessor Synchronization Option 
+        "acquire": IntrinsicInfo([], []),
     }    
 
     def _decode_instruction(self, data, addr):
@@ -230,7 +242,7 @@ class XtensaLE(Architecture):
             result.add_branch(BranchType.CallDestination,
                               insn.target_offset(addr))
         elif insn.mnem in ["CALLX0", "CALLX4", "CALLX8", "CALLX12"]:
-            result.add_branch(BranchType.CallDestination)
+            result.add_branch(BranchType.IndirectBranch)
         elif insn.mnem in ["SYSCALL"]:
             result.add_branch(BranchType.SystemCall)
 
