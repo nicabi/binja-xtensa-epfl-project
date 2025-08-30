@@ -1,3 +1,7 @@
+# List of all instruction available in Xtensa, grouped on their Xtensa Option that
+# implements it. Additional notes were left regarding their current lifter status 
+# in the plugin.
+
 ############################################################
 ######### Code Density Option ##############################
 ############################################################

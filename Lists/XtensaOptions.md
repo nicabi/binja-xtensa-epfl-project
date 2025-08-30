@@ -1,3 +1,6 @@
+This is a list of all possible options available in Xtensa. 
+It can help to get an overview of what needs to be implemented for the decompiler
+
 # "Options for Additional Instructions" on page 53
 Code Density Option                       - adds 16-bit encodings of the most frequently used 24-bit instructions for higher code density.
 Loop Option                               - adds a zero overhead loop mechanism that eliminates branch instructions at loop ends.

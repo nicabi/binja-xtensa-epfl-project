@@ -1,7 +1,6 @@
-# binja-xtensa: Architecture Plugin and ESP8266 Loader
+# binja-xtensa: Architecture Plugin Support and ESP8266 Loader
 
-Tensilica Xtensa Architecture Plugin and ESP8266 Firmware Loader for Binary
-Ninja.
+Tensilica Xtensa Architecture Plugin Support and ESP8266 Firmware Loader for Binary Ninja.
 
 ![screenshot of Binary Ninja showing setup and loop of a decompiled ESP8266
 Arduino project](https://raw.githubusercontent.com/zackorndorff/binja-xtensa/0.5/screenshots/hero.png)
@@ -19,7 +18,7 @@ For a quick overview of the Xtensa ISA, I recommend [Espressif's overview](https
 
 * Disassembly of almost all Xtensa instructions, except for the MAC16 option instructions 
 * Lifting for most Xtensa instructions, except for the MAC16 option instructions 
-  and a few instructions noted in Lists/Lifted_instr_list
+  and a few instructions noted in [Lifted_instr_list](Lists/Lifted_instr_list).
 * Support for Xtensa ELF files so they will be automatically recognized
 * Loader for ESP8266 raw firmware dumps. This support is a little finicky to
   use, as there's multiple partitions in the firmware dumps. By default it uses
@@ -75,7 +74,7 @@ binaries in a target folder, including contents of archive .a files, and runs th
 Binary Ninja analysis. The results are then stored in a target path provided to the
 script. This helped with checking the progress during the implementation and understand
 which instructions should take priority when lifting. For visualizing the results,
-you can use the plotter in [plotter.ipynb](binja_xtensa/evaluation/plotter.ipynb) 
+you can use the plotter in [plotter.ipynb](binja_xtensa/evaluation/plotter.ipynb).
 
 ## Testing
 
@@ -88,7 +87,7 @@ root of the project.
 ## Future Work
 
 * Improve lifters once additional Binary Ninja features are added:
-    * Loop Option: function-level lifting necessary to lift loops that span multiple basic blocks.
+    * Loop Option: function-level lifting necessary to lift loops that span multiple basic blocks. 
     * Windowed Registers: Transparent copies would help higher level analysis
 * Cleanly implement LITBASE offset, using loading options
     * More information: Daniel Wegemer's [presentation](https://media.defcon.org/DEF%20CON%2031/DEF%20CON%2031%20presentations/Daniel%20Wegemer%20-%20Unlocking%20hidden%20powers%20in%20Xtensa%20based%20Qualcomm%20Wifi%20chips.pdf) at DEFCON31
